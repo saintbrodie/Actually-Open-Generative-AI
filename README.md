@@ -2,7 +2,7 @@
 
 > **The free, open-source, unrestricted alternative to AI Video Platforms.** Generate AI images and videos using 200+ state-of-the-art models — no content filters, no closed ecosystem, no subscription fees.
 
-**Community:** Join [Reddit](reddit.com/r/muapi) & [Discord](https://discord.gg/s7KW4fsqXK) for discussions and support
+**Community:** Join [Reddit](reddit.com/r/opengenerativeai) & [Discord](https://discord.gg/s7KW4fsqXK) for discussions and support
 
 > 🤖 **Automate media generations with AI coding agents:** [Generative-Media-Skills](https://github.com/SamurAIGPT/Generative-Media-Skills) — a library of skills that let agents like **Claude Code**, **Codex**, and other coding assistants drive 200+ image/video models end-to-end (prompt → generate → edit → stitch) directly from your terminal. Perfect for building automated media pipelines without touching a UI.
 
@@ -14,107 +14,17 @@
 
 ## 🌐 Try it Online — No Install Required
 
-**Hosted version:** [https://dev.muapi.ai/open-generative-ai](https://dev.muapi.ai/open-generative-ai)
+**Hosted version:** Self-hostable web version included in the repository.
 
-Use all four studios (Image, Video, Lip Sync, Cinema) directly in your browser — no Node.js, no setup. Sign up for a free account to start generating. The hosted version is always up to date with the latest models.
+Use all four studios (Image, Video, Lip Sync, Cinema) locally — no Node.js, no setup. The app connects directly to privacy-first providers.
 
-**Follow** the [creator](https://x.com/matchaman11) for updates
-
----
-
-## ⬇️ Download Desktop App
-
-One-click installers — no Node.js or terminal required.
-
-| Platform | Download |
-|---|---|
-| macOS Apple Silicon (M1/M2/M3/M4) | [Open Generative AI-1.0.9-arm64.dmg](https://github.com/Anil-matcha/Open-Generative-AI/releases/download/v1.0.9/Open.Generative.AI-1.0.9-arm64.dmg) |
-| macOS Intel (x64) | [Open Generative AI-1.0.9.dmg](https://github.com/Anil-matcha/Open-Generative-AI/releases/download/v1.0.9/Open.Generative.AI-1.0.9.dmg) |
-| Windows (x64) | [Open Generative AI Setup 1.0.9.exe](https://github.com/Anil-matcha/Open-Generative-AI/releases/download/v1.0.9/Open.Generative.AI.Setup.1.0.9.exe) |
-| Linux (Ubuntu x64) | [v1.0.9 release](https://github.com/Anil-matcha/Open-Generative-AI/releases/tag/v1.0.9) (`.AppImage` / `.deb`), or build locally with `npm run electron:build:linux`. |
-
-All releases: [github.com/Anil-matcha/Open-Generative-AI/releases](https://github.com/Anil-matcha/Open-Generative-AI/releases)
-
-### macOS Installation Guide
-
-Because the app is not notarized by Apple, macOS Gatekeeper will block it on first launch. Follow these steps:
-
-**Step 1** — Mount the DMG and drag the app to `/Applications`
-
-**Step 2** — Open Terminal and run:
-```bash
-xattr -cr "/Applications/Open Generative AI.app"
-```
-
-**Step 3** — Right-click the app in `/Applications` → click **Open** → click **Open** again on the dialog
-
-> You only need to do this once. After that, the app opens normally.
-
-**Alternative (no Terminal):**
-1. Try to open the app — macOS will block it
-2. Go to **System Settings → Privacy & Security**
-3. Scroll down to find _"Open Generative AI was blocked"_
-4. Click **Open Anyway** → **Open**
-
-### Windows Installation — SmartScreen warning fix
-
-Windows SmartScreen may show a warning because the installer is not code-signed:
-
-1. Click **More info** on the SmartScreen dialog
-2. Click **Run anyway**
-
-The app will install silently to `%LocalAppData%` with a Start Menu shortcut.
-
-### Ubuntu / Linux Installation
-
-Linux artifacts are available when building with Electron Builder:
-
-```bash
-# Build Linux installers (AppImage + .deb)
-npm run electron:build:linux
-```
-
-Generated files are written to the `release/` folder:
-- **AppImage** — portable, run directly after making executable:
-  ```bash
-  chmod +x "release/Open Generative AI-*.AppImage"
-  ./release/Open\ Generative\ AI-*.AppImage
-  ```
-- **.deb** — install on Debian/Ubuntu:
-  ```bash
-  sudo apt install ./release/open-generative-ai_*_amd64.deb
-  ```
-
-If AppImage fails to start on older systems, install `libfuse2`:
-
-```bash
-sudo apt install libfuse2
-```
-
-#### Ubuntu 24.04+ / AppArmor sandbox restriction
-
-Ubuntu 24.04 and later enable a kernel security policy (`apparmor_restrict_unprivileged_userns`) that blocks Chromium's user-namespace sandbox. If the app fails to start silently or crashes immediately, you have two options:
-
-**Option A — Recommended: install the `.deb` instead.**
-The `.deb` package ships an AppArmor profile that grants the required permission automatically on install with no system-wide changes.
-
-**Option B — Temporary system fix (AppImage users):**
-```bash
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-```
-This lasts until next reboot. To make it permanent:
-```bash
-echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/99-userns.conf
-```
-
----
-
-Open Generative AI is a free, unrestricted, open-source AI image, video, cinema, and lip sync studio that brings unrestricted creative workflows to everyone. No content filters, no prompt rejections, no guardrails — just full creative freedom. Powered by [Muapi.ai](https://muapi.ai), it supports text-to-image, image-to-image, text-to-video, image-to-video, and audio-driven lip sync generation across models like Flux, Nano Banana, Midjourney, Kling, Sora, Veo, Seedream, Infinite Talk, LTX Lipsync, Wan 2.2, and more — all from a sleek, modern interface you can self-host and customize.
+Open Generative AI is a free, unrestricted, open-source AI image, video, cinema, and lip sync studio that brings unrestricted creative workflows to everyone. No content filters, no prompt rejections, no guardrails — just full creative freedom. Powered by **Privacy-First APIs (Venice.ai & OpenRouter)**, it supports text-to-image, image-to-image, text-to-video, image-to-video, and audio-driven lip sync generation across models like Flux, Nano Banana, Midjourney, Kling, Sora, Veo, Seedream, Infinite Talk, LTX Lipsync, Wan 2.2, and more — all from a sleek, modern interface you can self-host and customize.
 
 **Why Open Generative AI instead of other AI Video Platforms?**
+- **Privacy First** — Zero Data Retention (ZDR) routing via Venice and OpenRouter.
 - **Unrestricted** — no content filters, no nanny guardrails, no prompt rejections
 - **Free & open-source** — no subscription, no vendor lock-in
-- **Self-hosted** — your data stays on your machine, full creative control
+- **Self-hosted** — your API keys stay on your machine, full creative control
 - **200+ models** — text-to-image, image-to-image, text-to-video, image-to-video, lip sync
 - **Multi-image input** — feed up to 14 reference images into compatible models
 - **Lip Sync Studio** — animate portraits or sync lips to any audio with 9 dedicated models
@@ -231,7 +141,7 @@ A healthy run on Apple Silicon prints `total params memory size = 1969.78MB (VRA
 - **Smart Controls** — Dynamic aspect ratio, resolution/quality, and duration pickers that adapt to each model's capabilities (including t2i models with resolution or quality options)
 - **Generation History** — Browse, revisit, and download all past generations (persisted in browser storage)
 - **Image & Video Download** — One-click download of generated outputs in full resolution
-- **API Key Management** — Secure API key storage in browser localStorage (never sent to any server except Muapi)
+- **API Key Management** — Secure API key storage in browser localStorage (never sent to any server except directly to Venice or OpenRouter)
 - **Responsive Design** — Works seamlessly on desktop and mobile with dark glassmorphism UI
 
 ### 🖼️ Image Studio — Dual Mode
@@ -347,7 +257,7 @@ The **Workflow Studio** lets you build and run multi-step AI pipelines without w
 - **Community** — Browse and run workflows published by other users
 - **Node-based Builder** — Drag-and-drop visual editor to connect models and route outputs between steps
 - **Playground** — Run any workflow interactively with a form UI; results render inline
-- **API execution** — Every workflow is also callable via the Muapi API
+- **API execution** — Every workflow is also callable via the provider APIs
 
 > 💡 **Want to add workflows to your own app?** Check out **[Vibe Workflow](https://github.com/SamurAIGPT/Vibe-Workflow)** — the open-source workflow engine powering this feature. Drop it into any project.
 
@@ -379,38 +289,7 @@ Every image you upload is saved locally (URL + thumbnail) so you never upload th
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18+)
-- A [Muapi.ai](https://muapi.ai) API key
-
-### Setup
-
-> **Most users want the desktop app, not this dev path.** If you just want to run Open Generative AI on your machine, [download a prebuilt installer](#-download-desktop-app) instead — no Node.js required. The instructions below are for contributors building from source.
-
-Pick the entry point that matches your goal:
-
-- **Desktop app (Electron)** → `npm run electron:dev`
-- **Hosted web version (Next.js)** → `npm run dev`
-
-```bash
-# Clone the repository (with submodules — required for the workflow + agent packages)
-git clone --recurse-submodules https://github.com/Anil-matcha/Open-Generative-AI.git
-cd Open-Generative-AI
-
-# If you already cloned without --recurse-submodules, run this once:
-# git submodule update --init --recursive
-
-# Install dependencies + build workspace packages (studio, workflow, agents).
-# This step is REQUIRED — `npm install` alone is not enough; the workspaces
-# need to be built before either dev script will work.
-npm run setup
-
-# Then start ONE of:
-npm run electron:dev   # Desktop app (Electron + Vite) — recommended
-npm run dev            # Hosted web version (Next.js) → http://localhost:3000
-```
-
-You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models).
-
-> **Troubleshooting — `Couldn't find a 'pages' directory`**: this means Next.js can't see the `app/` folder. Confirm you're running `npm run dev` from the repo root (the directory that contains `app/`, `package.json`, and `next.config.mjs`), and that you cloned with submodules. Re-run `npm run setup` if `packages/Vibe-Workflow` or `packages/Open-Poe-AI` are empty.
+- A [Venice.ai](https://venice.ai) or [OpenRouter.ai](https://openrouter.ai) API key
 
 ### Production Build
 
@@ -436,9 +315,6 @@ npm run electron:build:linux
 # Both platforms in one pass
 npm run electron:build:all
 ```
-
-Installers are output to the `release/` folder. Pre-built binaries are also available on the [Releases page](https://github.com/Anil-matcha/Open-Generative-AI/releases).
-
 ## 🏗️ Architecture
 
 The app is a **Next.js monorepo** with a shared `packages/studio` component library.
@@ -458,7 +334,7 @@ Open-Generative-AI/
 │       └── src/
 │           ├── index.js        # Exports: ImageStudio, VideoStudio, LipSyncStudio, CinemaStudio, WorkflowStudio
 │           ├── models.js       # 200+ model definitions (single source of truth)
-│           ├── muapi.js        # API client (named exports, apiKey as first param)
+│           ├── apiClient.js    # API client routing to Venice & OpenRouter
 │           └── components/
 │               ├── ImageStudio.jsx    # Dual-mode t2i/i2i studio
 │               ├── VideoStudio.jsx    # Dual-mode t2v/i2v studio
@@ -470,20 +346,17 @@ Open-Generative-AI/
 └── package.json                # workspaces: ["packages/studio"]
 ```
 
-The `packages/studio` library is also consumed by the hosted version on [muapi.ai](https://muapi.ai) — model updates made in `packages/studio/src/models.js` apply to both the self-hosted app and the hosted version automatically.
+The `packages/studio` library is used natively by the desktop and web apps, enabling seamless updates to model definitions and UI capabilities.
 
 ## 🔌 API Integration
 
-The app communicates with [Muapi.ai](https://muapi.ai) using a two-step pattern:
+The app communicates with **Venice.ai** and **OpenRouter** using direct, standard REST endpoints (e.g. `/v1/image/generations` and `/v1/chat/completions`).
 
-1. **Submit** — `POST /api/v1/{model-endpoint}` with prompt and parameters
-2. **Poll** — `GET /api/v1/predictions/{request_id}/result` until status is `completed`
+Authentication uses standard `Authorization: Bearer` headers. For OpenRouter, Zero Data Retention (ZDR) routing is enforced using `HTTP-Referer` and `X-Title` headers to maximize privacy.
 
-Authentication uses the `x-api-key` header. During development, a Vite proxy handles CORS by routing `/api` requests to `https://api.muapi.ai`.
+During local development, a Vite proxy handles CORS by routing `/api/venice` and `/api/openrouter` directly to the providers.
 
-File uploads use `POST /api/v1/upload_file` (multipart/form-data) and return a hosted URL that is passed to image-conditioned models. For multi-image models the full `images_list` array is forwarded to the API in one request.
-
-Lip sync jobs use the same two-step pattern: a dedicated `processLipSync()` method accepts `image_url` or `video_url` alongside `audio_url`, dispatches to the model's endpoint, and polls until the output video URL is available.
+Models are fetched dynamically via the standard `/v1/models` endpoints to ensure you always have access to the latest available generations.
 
 ## 🎨 Supported Model Categories
 
@@ -501,7 +374,7 @@ Lip sync jobs use the same two-step pattern: a dedicated `processLipSync()` meth
 - **React 18** — Studio UI components
 - **Tailwind CSS v3** — Utility-first styling
 - **npm workspaces** — Monorepo with shared `packages/studio` library
-- **Muapi.ai** — AI model API gateway
+- **Venice.ai & OpenRouter** — Privacy-first, open API gateways for AI models
 
 ## 🤔 How is this different from other AI Video Plaforms?
 
@@ -515,7 +388,7 @@ Lip sync jobs use the same two-step pattern: a dedicated `processLipSync()` meth
 | **Models** | Proprietary | 200+ open & commercial models |
 | **Multi-image input** | Limited | Up to 14 images per request |
 | **Lip sync** | No | 9 models, image & video modes |
-| **Hosted version** | Subscription | Free at [muapi.ai/open-generative-ai](https://muapi.ai/open-generative-ai) |
+| **Hosted version** | Subscription | Self-hosted or desktop app |
 | **Self-hosting** | No | Yes |
 | **Customizable** | No | Fully hackable |
 | **Data privacy** | Cloud-based | Your data stays local |
@@ -527,10 +400,4 @@ MIT
 
 ## 🙏 Credits
 
-Built with [Muapi.ai](https://muapi.ai) — the unified API for AI image and video generation models.
-
----
-**Deep Dive**: For more details on the "AI Influencer" engine, upcoming "Popcorn" storyboarding features, and the future of this project, read the [full technical overview](https://medium.com/@anilmatcha/).
-
----
-*Looking for a free, unrestricted AI Video Plaform? Open Generative AI is an open-source, unrestricted AI image and video generation studio — with no content filters that you can self-host, customize, and extend.*
+Built with **Venice.ai** and **OpenRouter** — empowering creators with unrestricted, privacy-first access to the world's best AI models.

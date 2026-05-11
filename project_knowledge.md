@@ -7,7 +7,7 @@ This document serves as a comprehensive knowledge base for the Open Generative A
 **Open Generative AI** is an ambitious open-source project dedicated to **replicating the full functionality of the Higgsfield platform**.
 
 - **Core Goal:** To build a feature-complete, self-hosted alternative to Higgsfield, starting with **Image Generation** (Nano) and expanding into **Video Generation** (Cinema) and other creative tools.
-- **Current State:** The Image Studio ("Nano Banana Pro" interface) is fully operational, featuring a premium dark-mode UI, history management, and multi-model support via the [Muapi.ai](https://muapi.ai) engine.
+- **Current State:** The Image Studio ("Nano Banana Pro" interface) is fully operational, featuring a premium dark-mode UI, history management, and multi-model support via privacy-first, open APIs (**Venice.ai** and **OpenRouter**).
 - **Future Direction:** The architecture is designed to scale for video generation, model training interfaces, and advanced editing tools, mirroring the evolving capabilities of Higgsfield.
 
 - **Stack:** Vite, Vanilla JavaScript, Tailwind CSS v4.
@@ -27,8 +27,8 @@ src/
 │   ├── SettingsModal.js   # Panel for managing settings (clearing API key).
 │   └── Sidebar.js        # (Currently unused/placeholder) Navigation sidebar.
 ├── lib/
-│   ├── muapi.js          # The API Client. Handles auth, submission, and polling.
-│   └── models.js         # Source of truth for model definitions and endpoints.
+│   ├── apiClient.js      # The API Client. Handles dynamic routing to Venice/OpenRouter.
+│   └── models.js         # Source of truth for static model fallbacks and properties.
 ├── styles/
 │   ├── global.css        # Global resets, fonts, and animation keyframes.
 │   ├── studio.css        # Specific styles for the studio interface.
@@ -44,31 +44,30 @@ This is the most complex component. It handles:
 - **State:** Selected model (`selectedModel`), aspect ratio (`selectedAr`), and generation status.
 - **Prompt Input:** A textarea with auto-grow logic and max-height constraints (fixed in `bf2efdb`).
 - **Dynamic Controls:**
-    - **Model Picker:** Lists models from `models.js`.
-    - **Quality/Resolution:** Only appears for models with explicit resolution support (like `nano-banana-pro`). Hidden for others (like `flux-schnell`).
+    - **Provider Selector:** Allows toggling between `venice` and `openrouter`.
+    - **Model Picker:** Lists models fetched dynamically from the selected provider.
+    - **Quality/Resolution:** Only appears for models with explicit resolution support.
 - **Generation Flow:**
-    1. Checks for API key in `localStorage`. If missing, opens `AuthModal`.
-    2. Calls `muapi.generateImage()`.
-    3. Polling loop waits for result.
-    4. On success, adds result to `generationHistory` and displays it.
+    1. Checks for API key (`venice_api_key` or `openrouter_api_key`) in `localStorage`. If missing, opens `AuthModal`.
+    2. Calls `apiClient.generateImage()`.
+    3. On success, adds result to `generationHistory` and displays it (no polling required for these standard endpoints).
 - **History:**
     - Stored in `localStorage` key `muapi_history`.
     - Slides in from the right sidebar.
     - Thumbnails are clickable to re-view; hover to download.
 
-### `muapi.js` (The Engine)
-Encapsulates all communication with `api.muapi.ai`.
-- **Authentication:** Uses `x-api-key` header (NOT `Authorization: Bearer`).
-- **Pattern:** Submit -> Poll.
-    - `POST` to endpoint (e.g., `/api/v1/nano-banana-pro`).
-    - API returns a `request_id`.
-    - `POST` / `GET` loop on `/api/v1/predictions/{id}/result` until status is `completed`, `succeeded`, or `failed`.
-- **Normalization:** The polling response structure varies. `muapi.js` normalizes the result to ensure `url` is always populated (extracting from `outputs[0]` if necessary).
+### `apiClient.js` (The Engine)
+Encapsulates all communication with Venice.ai and OpenRouter.
+- **Authentication:** Uses `Authorization: Bearer` with the respective keys. OpenRouter also includes `HTTP-Referer` and `X-Title` for Zero Data Retention (ZDR) routing.
+- **Pattern:** Direct async/await standard HTTP REST calls without proprietary polling.
+    - **Venice:** `POST` to `/image/generations`.
+    - **OpenRouter:** `POST` to `/chat/completions` with image modalities.
+- **Dynamic Discovery:** Queries `/v1/models` from the providers to dynamically populate the Image Studio.
 
 ### `models.js` (The Data)
-Contains the `t2iModels` array.
-- Each model has an `id`, `name`, `inputs` schema (resolution, aspect ratio support), and a crucial `endpoint` property.
-- **Crucial:** The `endpoint` property maps the internal ID to the API path (e.g., `flux-schnell` -> `flux-schnell-image`).
+Contains static fallbacks (`t2iModels`, `i2iModels`, etc.).
+- Serves as a fallback if the dynamic `/models` fetch from the provider fails.
+- Maps basic model settings (like default aspect ratio) and provides dummy helper functions for other studios.
 
 ## 4. UI & Styling (Tailwind v4)
 
@@ -82,8 +81,8 @@ Contains the `t2iModels` array.
 
 ## 5. Development Setup
 
-- **Vite Proxy:** Local development uses a proxy in `vite.config.js` to route `/api` requests to `https://api.muapi.ai` to avoid CORS issues.
-- **Environment:** `muapi.js` detects `import.meta.env.DEV` to decide whether to use the relative `/api` path (proxy) or the full URL (production).
+- **Vite Proxy:** Local development uses proxies in `vite.config.mjs` to route `/api/venice` to `https://api.venice.ai/api/v1` and `/api/openrouter` to `https://openrouter.ai/api/v1` to avoid CORS issues.
+- **Environment:** `apiClient.js` detects `import.meta.env.DEV` to decide whether to use the relative `/api/...` path (proxy) or the full URL (production).
 
 ## 6. Known Gotchas & Fixes
 
