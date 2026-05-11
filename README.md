@@ -1,403 +1,71 @@
-# Open Generative AI — Unrestricted Open-Source Alternative to AI Video Platforms
+# Actually Open Generative AI
 
-> **The free, open-source, unrestricted alternative to AI Video Platforms.** Generate AI images and videos using 200+ state-of-the-art models — no content filters, no closed ecosystem, no subscription fees.
+**Actually Open Generative AI** is a privacy-first, unrestricted open-source alternative to proprietary AI generation platforms. This fork focuses on removing closed-source backends and moving towards a fully transparent, "Bring Your Own Key" (BYOK) architecture.
 
-**Community:** Join [Reddit](reddit.com/r/opengenerativeai) & [Discord](https://discord.gg/s7KW4fsqXK) for discussions and support
+## 🚀 The Mission: True Privacy & Freedom
 
-> 🤖 **Automate media generations with AI coding agents:** [Generative-Media-Skills](https://github.com/SamurAIGPT/Generative-Media-Skills) — a library of skills that let agents like **Claude Code**, **Codex**, and other coding assistants drive 200+ image/video models end-to-end (prompt → generate → edit → stitch) directly from your terminal. Perfect for building automated media pipelines without touching a UI.
+Most "open" platforms still rely on proprietary middle-man APIs that log your prompts, track your usage, and enforce hidden guardrails. This fork changes that by:
 
-### Related projects
+- **Removing Proprietary Backends:** Completely stripped out `muapi.ai` and other closed-source connectors.
+- **Privacy-First Routing:** All requests go directly to **Venice.ai** and **OpenRouter**, utilizing Zero Data Retention (ZDR) headers where available.
+- **Unrestricted Access:** No nanny-filters, no prompt rejections, and no shadow-banning. Your keys, your rules.
+- **Dynamic Discovery:** Models are fetched in real-time from providers, ensuring you always have access to the latest state-of-the-art releases (Flux, Nano Banana, etc.) without waiting for app updates.
 
-> **Open-source Node based workflow builder** -> https://github.com/SamurAIGPT/Vibe-Workflow
+## ✨ Key Features
 
-> **Open-source AI Clipping — turn any long-form YouTube video into viral-ready vertical shorts** -> https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator
-
-## 🌐 Try it Online — No Install Required
-
-**Hosted version:** Self-hostable web version included in the repository.
-
-Use all four studios (Image, Video, Lip Sync, Cinema) locally — no Node.js, no setup. The app connects directly to privacy-first providers.
-
-Open Generative AI is a free, unrestricted, open-source AI image, video, cinema, and lip sync studio that brings unrestricted creative workflows to everyone. No content filters, no prompt rejections, no guardrails — just full creative freedom. Powered by **Privacy-First APIs (Venice.ai & OpenRouter)**, it supports text-to-image, image-to-image, text-to-video, image-to-video, and audio-driven lip sync generation across models like Flux, Nano Banana, Midjourney, Kling, Sora, Veo, Seedream, Infinite Talk, LTX Lipsync, Wan 2.2, and more — all from a sleek, modern interface you can self-host and customize.
-
-**Why Open Generative AI instead of other AI Video Platforms?**
-- **Privacy First** — Zero Data Retention (ZDR) routing via Venice and OpenRouter.
-- **Unrestricted** — no content filters, no nanny guardrails, no prompt rejections
-- **Free & open-source** — no subscription, no vendor lock-in
-- **Self-hosted** — your API keys stay on your machine, full creative control
-- **200+ models** — text-to-image, image-to-image, text-to-video, image-to-video, lip sync
-- **Multi-image input** — feed up to 14 reference images into compatible models
-- **Lip Sync Studio** — animate portraits or sync lips to any audio with 9 dedicated models
-- **Extensible** — add your own models, modify the UI, build on top of it
-
-For a deep dive into the technical architecture and the philosophy behind the "Infinite Budget" cinema workflow, see our [comprehensive guide and roadmap](https://medium.com/@anilmatcha/).
-
-## ⚡ Local Model Inference (Desktop App Only)
-
-The desktop app supports **two independent local engines**. Pick whichever fits the machine you actually run on:
-
-| Engine | What it is | Best for |
-|---|---|---|
-| **sd.cpp** (bundled) | C++ engine from [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp), runs on the same machine as the app. Metal GPU on Apple Silicon, CUDA/Vulkan/ROCm on Linux/Windows. | Image-only models. Works on Mac M-series. |
-| **Wan2GP** (BYO server) | HTTP client to a user-run [Wan2GP](https://github.com/deepbeepmeep/Wan2GP) server. The server runs Python + PyTorch on a CUDA/ROCm GPU; the desktop app only sends prompts and receives results. | Video models (Wan 2.2, Hunyuan, LTX) and large image models (Flux, Qwen-Image). NVIDIA/AMD GPU required on the *server*; the desktop app itself can run on a Mac. |
-
-Both engines share the same UI: open **Settings → Local Models** to configure each.
-
-### Engine 1 — sd.cpp (bundled)
-
-| Model | Type | Size | Notes |
-|---|---|---|---|
-| **Z-Image Turbo** ⚡ | Diffusion Transformer | 2.5 GB + 2.7 GB aux | 8-step turbo. Heavy on memory. |
-| **Z-Image Base** ⚡ | Diffusion Transformer | 3.5 GB + 2.7 GB aux | 50-step high-quality. Heavy on memory. |
-| **Dreamshaper 8** | SD 1.5 | 2.1 GB | 20-step versatile. Lightest tested option on Mac. |
-| **Realistic Vision v5.1** | SD 1.5 | 2.1 GB | 25-step photorealistic |
-| **Anything v5** | SD 1.5 | 2.1 GB | 20-step anime/illustration |
-| **SDXL Base 1.0** | SDXL | 6.9 GB | 30-step high-res |
-
-> **Z-Image models** require two shared auxiliary files (downloaded once, shared across both models):
-> - **Qwen3-4B Text Encoder** — 2.4 GB
-> - **FLUX VAE** — 335 MB
-
-**How to use:**
-1. Open **Settings → Local Models** in the desktop app
-2. Install the **sd.cpp inference engine** (one click — auto-downloaded)
-3. Download your chosen model (and auxiliary files for Z-Image)
-4. In **Image Studio**, click the **⚡ Local** toggle next to the model selector
-5. Select your local model and generate — no API key needed
-
-All downloads happen inside the app. Nothing is installed system-wide.
-
-### Engine 2 — Wan2GP (remote Gradio server)
-
-The app does **not** bundle Python or model weights for Wan2GP. You run Wan2GP yourself on a machine with a CUDA or ROCm GPU and point the desktop app at its URL.
-
-```bash
-# On your GPU machine
-git clone https://github.com/deepbeepmeep/Wan2GP
-cd Wan2GP
-./install.sh                          # or install.bat on Windows
-python wgp.py --listen --server-name 0.0.0.0   # binds to all interfaces
-```
-
-Then in the desktop app: **Settings → Local Models → Wan2GP server**, paste the URL (e.g. `http://192.168.1.42:7860`), click **Test**, then **Save**. The Wan2GP models become available — image models in **Image Studio**, video models reachable via the same generation API (Image Studio rejects video output explicitly; full Video Studio wiring is on the roadmap).
-
-| Model | Type | Notes |
-|---|---|---|
-| **Flux.1 Dev** | Image | 1024px, 28 steps |
-| **Qwen Image** | Image | 1024px, 30 steps |
-| **Wan 2.2 (T2V / I2V)** | Video | Slow on consumer GPUs |
-| **Hunyuan Video** | Video | High-quality T2V |
-| **LTX Video** | Video | Fastest video option |
-
-> **Why a separate server?** Wan2GP's runtime (Sage attention, flash-attn, AWQ/GGUF kernels) is CUDA-only — there is no MPS / Apple Silicon path. Treating it as a remote server lets a Mac-only user keep the desktop app while offloading inference to a Linux/Windows GPU box, a gaming PC on the LAN, or a rented RunPod/vast.ai instance.
-
-> **Local inference is only available in the desktop app.** The hosted web version always uses cloud APIs.
-
-### Hardware Notes
-
-- **sd.cpp** runs on CPU (all platforms) and **Metal GPU** on Apple Silicon (M1/M2/M3/M4); CUDA/Vulkan/ROCm on Linux/Windows.
-- Metal GPU acceleration is built into the macOS desktop binary — significantly faster than CPU-only.
-- Recommended for sd.cpp Z-Image: 16 GB RAM (7.4 GB weights + 2.4 GB compute buffer). On a base 8 GB M-series Mac, **Z-Image is known to hang the system** — stick to SD 1.5 there.
-- For SD 1.5 on M2: expect ~1–2 s/step with the Metal dylib active. If you see ~10 s/step instead, the binary may have fallen back to CPU — see verification below.
-
-### Verifying the SD 1.5 path (the fastest sanity test on Mac)
-
-If you want to confirm sd.cpp is installed correctly without going through the UI, you can drive `sd-cli` directly. This is the same binary the app uses.
-
-```bash
-# 1. App data layout (created on first app launch)
-APP_DATA="$HOME/Library/Application Support/open-generative-ai/local-ai"
-ls "$APP_DATA/bin"     # sd-cli, libstable-diffusion.dylib
-ls "$APP_DATA/models"  # whatever you've downloaded
-
-# 2. Grab a small SD 1.5 model directly (Dreamshaper 8, ~2 GB)
-curl -L --fail --progress-bar \
-  -o "$APP_DATA/models/DreamShaper_8_pruned.safetensors" \
-  "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors"
-
-# 3. Run a single 512x512 / 12-step inference
-DYLD_LIBRARY_PATH="$APP_DATA/bin" "$APP_DATA/bin/sd-cli" \
-  -m "$APP_DATA/models/DreamShaper_8_pruned.safetensors" \
-  -p "a serene mountain lake at sunrise, oil painting" \
-  -o /tmp/sd15-test.png \
-  --steps 12 -H 512 -W 512 --cfg-scale 7.5 --seed 42 \
-  --sampling-method euler_a
-```
-
-A healthy run on Apple Silicon prints `total params memory size = 1969.78MB (VRAM 1969.78MB, RAM 0.00MB)` (Metal-backed) and produces a coherent 512×512 PNG. If `VRAM` is `0.00MB` instead, the dylib is CPU-only — check `otool -L "$APP_DATA/bin/libstable-diffusion.dylib" | grep -i metal` and reinstall the engine from **Settings → Local Models** if Metal is missing.
-
----
-
-## ✨ Features
-
-- **Image Studio** — Generate images from text prompts (50+ text-to-image models) or transform existing images (55+ image-to-image models). Switches model set automatically based on whether a reference image is provided. Quality and resolution controls visible for models that support them.
-- **Local Inference** — Two engines: **sd.cpp** (bundled, runs on Mac/Win/Linux with Metal/CUDA/Vulkan/ROCm) for SD 1.5, SDXL, and Z-Image; and **Wan2GP** (BYO Gradio server) for Flux, Qwen-Image, and video models (Wan 2.2, Hunyuan, LTX). Configure both in Settings → Local Models.
-- **Multi-Image Input** — Upload up to 14 reference images for compatible edit models (Nano Banana 2 Edit, Flux Kontext Dev, GPT-4o Edit, and more). Multi-select picker with order badges, batch upload, and a "Use Selected" confirmation flow.
-- **Video Studio** — Generate videos from text prompts (40+ text-to-video models) or animate a start-frame image (60+ image-to-video models). Same intelligent mode switching as Image Studio.
-- **Lip Sync Studio** — Animate portrait images or sync lips on existing videos using audio. 9 dedicated models across two modes: portrait image + audio → talking video, and video + audio → lipsync video.
-- **Cinema Studio** — Interface for photorealistic cinematic shots with pro camera controls (Lens, Focal Length, Aperture)
-- **Workflow Studio** — Build and run multi-step AI pipelines visually. Chain image, video, and audio models into automated flows. Browse community templates, create your own with a node-based editor, and run them via an interactive playground.
-- **Upload History** — Reference images are uploaded once and stored locally. A picker panel lets you reuse any previously uploaded image across sessions — no re-uploading.
-- **Smart Controls** — Dynamic aspect ratio, resolution/quality, and duration pickers that adapt to each model's capabilities (including t2i models with resolution or quality options)
-- **Generation History** — Browse, revisit, and download all past generations (persisted in browser storage)
-- **Image & Video Download** — One-click download of generated outputs in full resolution
-- **API Key Management** — Secure API key storage in browser localStorage (never sent to any server except directly to Venice or OpenRouter)
-- **Responsive Design** — Works seamlessly on desktop and mobile with dark glassmorphism UI
-
-### 🖼️ Image Studio — Dual Mode
-
-The Image Studio automatically switches between two model sets:
-
-| Mode | Trigger | Models | Prompt |
-| :--- | :--- | :--- | :--- |
-| **Text-to-Image** | Default (no image) | 50+ t2i models (Flux, Nano Banana 2, Seedream 5.0, Ideogram, GPT-4o, Midjourney…) | Required |
-| **Image-to-Image** | Reference image uploaded | 55+ i2i models (Kontext, Nano Banana 2 Edit, Seedream 5.0 Edit, Seededit, Upscaler…) | Optional |
-
-#### Newly Added Models
-
-| Model | Type | Key Features |
-| :--- | :--- | :--- |
-| **Nano Banana 2** | Text-to-Image | Google Gemini 3.1 Flash Image · Resolution 1K/2K/4K · Google Search enhancement · aspect ratio `auto` |
-| **Nano Banana 2 Edit** | Image-to-Image | Up to **14 reference images** · Resolution 1K/2K/4K · Google Search enhancement |
-| **Seedream 5.0** | Text-to-Image | ByteDance · Quality basic/high · 8 aspect ratios · up to 4K |
-| **Seedream 5.0 Edit** | Image-to-Image | ByteDance · Natural language style transfer · Quality basic/high |
-| **MiniMax Image 01** | Text-to-Image | MiniMax · 8 aspect ratios · up to 4 images per request · 1500 char prompt |
-
-#### Multi-Image Input
-
-Models that accept multiple reference images expose a multi-select picker when active:
-
-| Model | Max Images |
-| :--- | :--- |
-| Nano Banana 2 Edit | 14 |
-| Nano Banana Edit | 10 |
-| Flux Kontext Dev I2I | 10 |
-| Kling O1 Edit Image | 10 |
-| GPT-4o Edit / GPT Image 1.5 Edit | 10 |
-| Bytedance Seedream Edit v4 / v4.5 | 10 |
-| Vidu Q2 Reference to Image | 7 |
-| Flux 2 Flex/Pro Edit | 8 |
-| Nano Banana Pro Edit | 8 |
-| Flux Kontext Pro/Max I2I | 2 |
-| Wan 2.5/2.6 Image Edit | 2–3 |
-| Qwen Image Edit Plus / 2511 | 3 |
-| GPT-4o Image to Image | 5 |
-| Flux 2 Klein 4b/9b Edit | 4 |
-
-When a multi-image model is selected the upload trigger switches to multi-select mode:
-- **Checkboxes with order numbers** — images are sent to the model in the order you select them
-- **Batch upload** — pick multiple files at once from your file dialog
-- **Count badge** on the trigger shows how many images are active; a `+` badge appears when more slots are available
-- **"Use Selected" button** confirms and closes the picker
-
-### 🎬 Video Studio — Dual Mode
-
-The Video Studio follows the same pattern:
-
-| Mode | Trigger | Models | Prompt |
-| :--- | :--- | :--- | :--- |
-| **Text-to-Video** | Default (no image) | 40+ t2v models (Kling, Sora, Veo, Wan, Seedance 2.0, Hailuo, Runway…) | Required |
-| **Image-to-Video** | Start frame uploaded | 60+ i2v models (Kling I2V, Veo3 I2V, Runway I2V, Wan I2V, Seedance 2.0 I2V, Midjourney I2V…) | Optional |
-
-#### Newly Added Models
-
-| Model | Type | Key Features |
-| :--- | :--- | :--- |
-| **Seedance 2.0** | Text-to-Video | ByteDance · Aspect ratios 16:9 / 9:16 / 4:3 / 3:4 · Duration 5 / 10 / 15s · Quality basic/high |
-| **Seedance 2.0 I2V** | Image-to-Video | ByteDance · Animate images into video · Up to 9 reference images · Aspect ratios 16:9 / 9:16 / 4:3 / 3:4 · Duration 5 / 10 / 15s · Quality basic/high |
-| **Seedance 2.0 Extend** | Video Extension | ByteDance · Seamlessly continue any Seedance 2.0 generation · Preserves style, motion & audio · Optional continuation prompt · Duration 5 / 10 / 15s · Quality basic/high |
-| **Grok Imagine T2V** | Text-to-Video | xAI · Duration 6 / 10 / **15s** · Modes: fun / normal / spicy · Aspect ratios 9:16 / 16:9 / 2:3 / 3:2 / 1:1 |
-| **Grok Imagine I2V** | Image-to-Video | xAI · Duration 6 / 10 / **15s** · Modes: fun / normal / spicy · Cinematic motion from still images |
-| **MiniMax Hailuo 02 / 2.3 Standard & Pro** | Text-to-Video / Image-to-Video | MiniMax · Full HD video · Multiple aspect ratios · Fast variant included |
-
-### 🎙️ Lip Sync Studio
-
-The **Lip Sync Studio** generates audio-driven talking videos using 9 models across two input modes:
-
-| Mode | Trigger | Description |
-| :--- | :--- | :--- |
-| **Portrait Image** | Default | Upload a portrait image + audio file → animated talking video |
-| **Video** | Switch to Video mode | Upload an existing video + audio file → lipsync video |
-
-#### Image-based Models (Portrait Image + Audio → Video)
-
-| Model | Endpoint | Resolutions | Prompt |
-| :--- | :--- | :--- | :--- |
-| **Infinite Talk** | `infinitetalk-image-to-video` | 480p, 720p | Optional |
-| **Wan 2.2 Speech to Video** | `wan2.2-speech-to-video` | 480p, 720p | Optional |
-| **LTX 2.3 Lipsync** | `ltx-2.3-lipsync` | 480p, 720p, 1080p | Optional |
-| **LTX 2 19B Lipsync** | `ltx-2-19b-lipsync` | 480p, 720p, 1080p | Optional |
-
-#### Video-based Models (Video + Audio → Lipsync Video)
-
-| Model | Endpoint | Resolutions | Prompt |
-| :--- | :--- | :--- | :--- |
-| **Sync Lipsync** | `sync-lipsync` | — | — |
-| **LatentSync** | `latentsync-video` | — | — |
-| **Creatify Lipsync** | `creatify-lipsync` | — | — |
-| **Veed Lipsync** | `veed-lipsync` | — | — |
-| **Infinite Talk V2V** | `infinitetalk-video-to-video` | 480p, 720p | Optional |
-
-**How it works:**
-1. Select **Portrait Image** or **Video** mode using the toggle
-2. Upload your portrait image (or video) using the image/video upload button
-3. Upload your audio file using the audio upload button
-4. Optionally enter a prompt to guide the motion style
-5. Select a model and resolution (where supported), then click **Generate**
-
-Generation history is saved separately in `lipsync_history` and pending jobs resume automatically on page reload.
-
-### 🔀 Workflow Studio
-
-The **Workflow Studio** lets you build and run multi-step AI pipelines without writing code.
-
-**Key capabilities:**
-- **Templates** — Start from pre-built workflows (image chains, video pipelines, and more)
-- **My Workflows** — Save and manage your own custom pipelines
-- **Community** — Browse and run workflows published by other users
-- **Node-based Builder** — Drag-and-drop visual editor to connect models and route outputs between steps
-- **Playground** — Run any workflow interactively with a form UI; results render inline
-- **API execution** — Every workflow is also callable via the provider APIs
-
-> 💡 **Want to add workflows to your own app?** Check out **[Vibe Workflow](https://github.com/SamurAIGPT/Vibe-Workflow)** — the open-source workflow engine powering this feature. Drop it into any project.
-
-### 🎥 Cinema Studio Controls
-
-The **Cinema Studio** offers precise control over the virtual camera, translating your choices into optimized prompt modifiers:
-
-| Category | Available Options |
-| :--- | :--- |
-| **Cameras** | Modular 8K Digital, Full-Frame Cine Digital, Grand Format 70mm Film, Studio Digital S35, Classic 16mm Film, Premium Large Format Digital |
-| **Lenses** | Creative Tilt, Compact Anamorphic, Extreme Macro, 70s Cinema Prime, Classic Anamorphic, Premium Modern Prime, Warm Cinema Prime, Swirl Bokeh Portrait, Vintage Prime, Halation Diffusion, Clinical Sharp Prime |
-| **Focal Lengths** | 8mm (Ultra-Wide), 14mm, 24mm, 35mm (Human Eye), 50mm (Portrait), 85mm (Tight Portrait) |
-| **Apertures** | f/1.4 (Shallow DoF), f/4 (Balanced), f/11 (Deep Focus) |
-
-### 📁 Upload History & Picker
-
-Every image you upload is saved locally (URL + thumbnail) so you never upload the same file twice:
-
-- Click the upload button to open the **reference image picker**
-- Previously uploaded images appear in a 3-column grid with thumbnails
-- **Single-image models** — click a thumbnail to instantly select and close
-- **Multi-image models** — toggle multiple thumbnails (shown with order numbers), then click **Use Selected**
-- Upload new images with the **Upload files** button (supports multi-file selection in multi-image mode)
-- Remove individual images from history with the ✕ button
-- History persists across browser sessions (stored in `localStorage`)
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18+)
-- A [Venice.ai](https://venice.ai) or [OpenRouter.ai](https://openrouter.ai) API key
-
-### Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-### Desktop App Build
-
-Build native desktop apps with Electron:
-
-```bash
-# macOS (DMG — Intel + Apple Silicon)
-npm run electron:build
-
-# Windows (NSIS installer — x64 + ARM64)
-npm run electron:build:win
-
-# Linux (AppImage + DEB — x64)
-npm run electron:build:linux
-
-# Both platforms in one pass
-npm run electron:build:all
-```
-## 🏗️ Architecture
-
-The app is a **Next.js monorepo** with a shared `packages/studio` component library.
-
-```
-Open-Generative-AI/
-├── app/                        # Next.js App Router
-│   ├── layout.js               # Root layout (Tailwind, fonts)
-│   ├── page.js                 # Redirects → /studio
-│   └── studio/
-│       └── page.js             # Studio page — renders StandaloneShell
-├── components/
-│   ├── StandaloneShell.js      # Tab nav + BYOK (API key from localStorage)
-│   └── ApiKeyModal.js          # API key entry modal
-├── packages/
-│   └── studio/                 # Shared React component library
-│       └── src/
-│           ├── index.js        # Exports: ImageStudio, VideoStudio, LipSyncStudio, CinemaStudio, WorkflowStudio
-│           ├── models.js       # 200+ model definitions (single source of truth)
-│           ├── apiClient.js    # API client routing to Venice & OpenRouter
-│           └── components/
-│               ├── ImageStudio.jsx    # Dual-mode t2i/i2i studio
-│               ├── VideoStudio.jsx    # Dual-mode t2v/i2v studio
-│               ├── LipSyncStudio.jsx  # Portrait/video + audio → talking video
-│               ├── CinemaStudio.jsx   # Pro studio with camera controls
-│               └── WorkflowStudio.jsx # Multi-step pipeline builder & playground
-├── next.config.mjs             # transpilePackages: ['studio']
-├── tailwind.config.js
-└── package.json                # workspaces: ["packages/studio"]
-```
-
-The `packages/studio` library is used natively by the desktop and web apps, enabling seamless updates to model definitions and UI capabilities.
-
-## 🔌 API Integration
-
-The app communicates with **Venice.ai** and **OpenRouter** using direct, standard REST endpoints (e.g. `/v1/image/generations` and `/v1/chat/completions`).
-
-Authentication uses standard `Authorization: Bearer` headers. For OpenRouter, Zero Data Retention (ZDR) routing is enforced using `HTTP-Referer` and `X-Title` headers to maximize privacy.
-
-During local development, a Vite proxy handles CORS by routing `/api/venice` and `/api/openrouter` directly to the providers.
-
-Models are fetched dynamically via the standard `/v1/models` endpoints to ensure you always have access to the latest available generations.
-
-## 🎨 Supported Model Categories
-
-| Category | Count | Examples |
-|---|---|---|
-| **Text-to-Image** | 50+ | Flux Dev, Nano Banana 2, Seedream 5.0, Ideogram v3, Midjourney v7, GPT-4o, SDXL |
-| **Image-to-Image** | 55+ | Nano Banana 2 Edit (×14), Flux Kontext Pro, GPT-4o Edit, Seededit v3, Upscaler, Background Remover |
-| **Text-to-Video** | 40+ | Kling v3, Sora 2, Veo 3, Wan 2.6, Seedance 2.0, Seedance 2.0 Extend, Seedance Pro, Hailuo 2.3, Runway Gen-3 |
-| **Image-to-Video** | 60+ | Kling v2.1 I2V, Veo3 I2V, Runway I2V, Seedance 2.0 I2V, Midjourney v7 I2V, Hunyuan I2V, Wan2.2 I2V |
-| **Lip Sync** | 9 | Infinite Talk I2V, Wan 2.2 Speech to Video, LTX 2.3 Lipsync, LTX 2 19B Lipsync, Sync, LatentSync, Creatify, Veed, Infinite Talk V2V |
+- **Dual-Provider Architecture:** Switch instantly between **Venice.ai** and **OpenRouter** directly from the prompt bar.
+- **Nano Banana Pro Interface:** A premium, dark-mode "Image Studio" designed for high-performance creative workflows.
+- **Intelligent History:** All generation history and reference images are stored locally in your browser—never on our servers.
+- **Glassmorphic UI:** A state-of-the-art interface built with Tailwind CSS v4, featuring smooth animations and a responsive layout.
+- **Multi-Model Support:** Access 200+ models across image and chat modalities with standardized API handling.
 
 ## 🛠️ Tech Stack
 
-- **Next.js 14** — App Router, server components, fast dev server
-- **React 18** — Studio UI components
-- **Tailwind CSS v3** — Utility-first styling
-- **npm workspaces** — Monorepo with shared `packages/studio` library
-- **Venice.ai & OpenRouter** — Privacy-first, open API gateways for AI models
+This project has been refactored for simplicity and performance:
+- **Core:** Vanilla JavaScript (No heavy framework overhead)
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS v4
+- **State:** LocalStorage-based persistence
 
-## 🤔 How is this different from other AI Video Plaforms?
+## 🚦 Quick Start
 
-**Open Generative AI** is a community-driven, open-source alternative that provides similar creative capabilities without the closed ecosystem:
+### 1. Prerequisites
+You will need an API key from at least one of these providers:
+- [Venice.ai](https://venice.ai)
+- [OpenRouter.ai](https://openrouter.ai)
 
-| | Other providers | Open Generative AI |
-| :--- | :--- | :--- |
-| **Cost** | Subscription-based | Free (open-source) |
-| **Content filters** | Yes — prompts blocked or altered | None — fully unrestricted |
-| **Restrictions** | Platform guardrails enforced | Unrestricted creative freedom |
-| **Models** | Proprietary | 200+ open & commercial models |
-| **Multi-image input** | Limited | Up to 14 images per request |
-| **Lip sync** | No | 9 models, image & video modes |
-| **Hosted version** | Subscription | Self-hosted or desktop app |
-| **Self-hosting** | No | Yes |
-| **Customizable** | No | Fully hackable |
-| **Data privacy** | Cloud-based | Your data stays local |
-| **Source code** | Closed | MIT licensed |
+### 2. Local Setup
+```bash
+# Clone the repository
+git clone https://github.com/saintbrodie/Actually-Open-Generative-AI.git
+cd Actually-Open-Generative-AI
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+
+### 3. Configuration
+1. Open the app in your browser.
+2. Click the **Settings** icon (or the **Auth** prompt).
+3. Enter your Venice or OpenRouter API keys.
+4. Select a provider and model in the Studio and start generating.
+
+## 🏗️ Architecture
+
+```tree
+src/
+├── components/   # Vanilla JS UI components (ImageStudio, AuthModal, etc.)
+├── lib/          # Core logic (apiClient.js, model fallbacks)
+├── styles/       # Tailwind v4 configuration and custom CSS variables
+└── main.js       # Application entry point
+```
 
 ## 📄 License
 
-MIT
+MIT - Feel free to fork, modify, and host your own instance.
 
-## 🙏 Credits
-
-Built with **Venice.ai** and **OpenRouter** — empowering creators with unrestricted, privacy-first access to the world's best AI models.
+---
+*Built for creators who value privacy and unrestricted creative expression.*
