@@ -46,19 +46,26 @@ export function SettingsModal(onClose) {
     body.style.cssText = 'flex:1;overflow-y:auto;padding:1.5rem;';
     modal.appendChild(body);
 
-    // ── Tab: API Key ──────────────────────────────────────────────────────────
+    // ── Tab: API Keys ─────────────────────────────────────────────────────────
     const apiPanel = document.createElement('div');
     apiPanel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:0.75rem;">
             <div>
-                <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:0.4rem;font-weight:600;">Muapi API Key</label>
-                <input id="settings-api-key" type="password"
+                <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:0.4rem;font-weight:600;">Venice.ai API Key</label>
+                <input id="settings-venice-key" type="password"
                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.6rem 0.9rem;color:#fff;font-size:0.875rem;outline:none;"
-                    placeholder="Enter your Muapi API key..."
-                    value="${localStorage.getItem('muapi_key') || ''}">
+                    placeholder="Enter your Venice API key..."
+                    value="${localStorage.getItem('venice_api_key') || ''}">
+            </div>
+            <div>
+                <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:0.4rem;font-weight:600;">OpenRouter API Key</label>
+                <input id="settings-openrouter-key" type="password"
+                    style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.6rem 0.9rem;color:#fff;font-size:0.875rem;outline:none;"
+                    placeholder="Enter your OpenRouter API key..."
+                    value="${localStorage.getItem('openrouter_api_key') || ''}">
             </div>
             <p style="font-size:0.7rem;color:rgba(255,255,255,0.3);margin:0;">
-                Your API key is stored locally and never sent anywhere except api.muapi.ai.
+                Your API keys are stored locally and only used to contact their respective services.
             </p>
             <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.5rem;">
                 <button id="settings-cancel-btn" style="padding:0.5rem 1rem;border-radius:0.5rem;background:none;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);font-size:0.75rem;font-weight:700;cursor:pointer;">Cancel</button>
@@ -100,12 +107,18 @@ export function SettingsModal(onClose) {
 
     apiPanel.querySelector('#settings-cancel-btn').onclick = close;
     apiPanel.querySelector('#settings-save-btn').onclick = () => {
-        const key = apiPanel.querySelector('#settings-api-key').value.trim();
-        if (key) {
-            localStorage.setItem('muapi_key', key);
+        const veniceKey = apiPanel.querySelector('#settings-venice-key').value.trim();
+        const openrouterKey = apiPanel.querySelector('#settings-openrouter-key').value.trim();
+        if (veniceKey || openrouterKey) {
+            if (veniceKey) localStorage.setItem('venice_api_key', veniceKey);
+            else localStorage.removeItem('venice_api_key');
+            
+            if (openrouterKey) localStorage.setItem('openrouter_api_key', openrouterKey);
+            else localStorage.removeItem('openrouter_api_key');
+            
             close();
         } else {
-            alert('Please enter a valid API key.');
+            alert('Please enter at least one API key.');
         }
     };
 

@@ -4,10 +4,17 @@ export default defineConfig({
     base: './',
     server: {
         proxy: {
-            '/api': {
-                target: 'https://api.muapi.ai',
+            '/api/venice': {
+                target: 'https://api.venice.ai/api/v1',
                 changeOrigin: true,
-                secure: false
+                secure: false,
+                rewrite: (path) => path.replace(/^\/api\/venice/, '')
+            },
+            '/api/openrouter': {
+                target: 'https://openrouter.ai/api/v1',
+                changeOrigin: true,
+                secure: false,
+                rewrite: (path) => path.replace(/^\/api\/openrouter/, '')
             }
         }
     }
