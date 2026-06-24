@@ -18,6 +18,9 @@ Most "open" platforms still rely on proprietary middle-man APIs that log your pr
 - **Intelligent History:** All generation history and reference images are stored locally in your browser—never on our servers.
 - **Glassmorphic UI:** A state-of-the-art interface built with Tailwind CSS v4, featuring smooth animations and a responsive layout.
 - **Multi-Model Support:** Access 200+ models across image and chat modalities with standardized API handling.
+- **Internationalization (i18n):** Toggle the UI language instantly between English (EN) and Chinese (ZH).
+- **Local Inference Support:** Download and run image models locally using CPU or GPU (available in the desktop Electron build).
+- **Audio, Cinema, and Clipping Studios:** Integrated UI workspaces for audio creation, cinematic scene scripting, and video clipping workflows.
 
 ## 🛠️ Tech Stack
 

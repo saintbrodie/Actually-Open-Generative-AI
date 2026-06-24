@@ -15,7 +15,7 @@ export function McpCliStudio() {
         </div>
         <h1 class="text-4xl md:text-5xl font-bold tracking-tight">MCP &amp; CLI</h1>
         <p class="text-secondary text-base md:text-lg max-w-2xl">
-            Use Open Higgsfield AI from your terminal, your IDE, or any MCP-compatible
+            Use Open Generative AI from your terminal, your IDE, or any MCP-compatible
             assistant. Generate cinematic images, videos, and audio across 100+ models —
             without leaving your workflow.
         </p>
@@ -90,6 +90,54 @@ export function McpCliStudio() {
         </div>
     `;
     inner.appendChild(examples);
+
+    // NEW FEATURE: Interactive Command Generator Playground
+    const playground = document.createElement('section');
+    playground.className = 'glass-panel rounded-2xl p-6 md:p-8 flex flex-col gap-6';
+    playground.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-widest text-secondary">Interactive Builder</span>
+            <div class="flex-1 h-px bg-white/5"></div>
+        </div>
+        <div class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="flex flex-col gap-1.5 flex-1 w-full">
+                <label class="text-[11px] font-bold tracking-wider uppercase text-secondary">Select Target Model</label>
+                <select id="modelSelector" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
+                    <option value="image generate 'a retro-futuristic synthwave car' --model flux-dev">Flux Dev (Image)</option>
+                    <option value="image generate 'oil painting of an astronaut' --model midjourney">Midjourney (Image)</option>
+                    <option value="video generate 'cinematic drone shot of an ancient castle' --model kling-master">Kling Master (Video)</option>
+                    <option value="video generate 'cyberpunk neon alleyway rain' --model luma-ray">Luma Ray (Video)</option>
+                    <option value="audio create 'ambient electronic space synth for gaming'">Lyria 3 (Audio)</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1.5 flex-1 w-full">
+                <label class="text-[11px] font-bold tracking-wider uppercase text-secondary">Output Format</label>
+                <select id="flagSelector" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
+                    <option value="">Default (Human-Readable)</option>
+                    <option value=" --output-json">JSON Object (AI Agent Native)</option>
+                    <option value=" --output-json | jq '.data.url'">Filtered URL Stream (JQ)</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex flex-col gap-2">
+            <span class="text-[12px] font-bold text-white/80">Generated Terminal Command</span>
+            <pre id="interactiveTerminal" class="text-[12px] font-mono text-primary bg-black/60 border border-white/5 rounded-lg px-4 py-3 overflow-x-auto whitespace-pre"></pre>
+        </div>
+    `;
+    inner.appendChild(playground);
+
+    // Event listener block to power the dynamic playground execution
+    const modelSel = playground.querySelector('#modelSelector');
+    const flagSel = playground.querySelector('#flagSelector');
+    const termDisp = playground.querySelector('#interactiveTerminal');
+
+    const updateCommandDisplay = () => {
+        termDisp.textContent = `muapi ${modelSel.value}${flagSel.value}`;
+    };
+
+    modelSel.addEventListener('change', updateCommandDisplay);
+    flagSel.addEventListener('change', updateCommandDisplay);
+    updateCommandDisplay(); // Run once immediately on build mount
 
     // Footer note
     const footer = document.createElement('p');

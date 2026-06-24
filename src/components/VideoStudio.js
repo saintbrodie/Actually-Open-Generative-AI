@@ -1,6 +1,7 @@
 import { muapi } from '../lib/apiClient.js';
 import { t2vModels, getAspectRatiosForVideoModel, getDurationsForModel, getResolutionsForVideoModel, i2vModels, getAspectRatiosForI2VModel, getDurationsForI2VModel, getResolutionsForI2VModel, v2vModels, getModesForModel } from '../lib/models.js';
 import { AuthModal } from './AuthModal.js';
+import { t } from '../lib/i18n.js';
 import { createUploadPicker } from './UploadPicker.js';
 import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pendingJobs.js';
 import { localAI, isLocalAIAvailable } from '../lib/localInferenceClient.js';
@@ -100,8 +101,8 @@ export function VideoStudio() {
                 <div class="absolute top-4 right-4 text-primary animate-pulse">✨</div>
              </div>
         </div>
-        <h1 class="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-widest uppercase mb-4 selection:bg-primary selection:text-black text-center px-4">Video Studio</h1>
-        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">Animate images into stunning AI videos with motion effects</p>
+        <h1 class="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-widest uppercase mb-4 selection:bg-primary selection:text-black text-center px-4">${t('video.title')}</h1>
+        <p class="text-secondary text-sm font-medium tracking-wide opacity-60">${t('video.subtitle')}</p>
     `;
     container.appendChild(hero);
 
@@ -164,7 +165,7 @@ export function VideoStudio() {
             selectedModelName = allT2V[0].name;
             document.getElementById('v-model-btn-label').textContent = selectedModelName;
             updateControlsForModel(selectedModel);
-            textarea.placeholder = 'Describe the video you want to create';
+            textarea.placeholder = t('video.placeholder');
             textarea.disabled = false;
         },
         // Route the upload through the configured Wan2GP server when the active
@@ -183,8 +184,8 @@ export function VideoStudio() {
         anchorContainer: container,
         onSelect: ({ url }) => { uploadedEndImageUrl = url; },
         onClear: () => { uploadedEndImageUrl = null; },
-        uploadFn: (file) => muapi.uploadFile(file),
-        requireApiKey: () => true,
+        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file),
+        requireApiKey: () => !isWan2gpModelId(selectedModel),
     });
     endPicker.trigger.title = 'End frame (optional)';
     // Visual marker: small "L" badge in the corner so users can tell the two
@@ -236,7 +237,7 @@ export function VideoStudio() {
 
     const videoReadyEl = document.createElement('div');
     videoReadyEl.className = 'hidden items-center justify-center w-full h-full';
-    videoReadyEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><polyline points="7 10 10 13 15 8" stroke="#d9ff00" stroke-width="2.5"/></svg>`;
+    videoReadyEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><polyline points="7 10 10 13 15 8" stroke="#22d3ee" stroke-width="2.5"/></svg>`;
 
     videoPickerBtn.appendChild(videoFileInput);
     videoPickerBtn.appendChild(videoIconEl);
@@ -437,7 +438,7 @@ export function VideoStudio() {
     const generateBtn = document.createElement('button');
     generateBtn.className = 'bg-primary text-black px-6 md:px-8 py-3 md:py-3.5 rounded-xl md:rounded-[1.5rem] font-black text-sm md:text-base hover:shadow-glow hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto shadow-lg';
     generateBtn.setAttribute('data-tooltip', 'Generate AI video from prompt');
-    generateBtn.innerHTML = `Generate ✨`;
+    generateBtn.innerHTML = t('common.generate');
 
     bottomRow.appendChild(controlsLeft);
     bottomRow.appendChild(generateBtn);
@@ -556,7 +557,7 @@ export function VideoStudio() {
                     <div class="px-2 pb-3 mb-2 border-b border-white/5 shrink-0">
                         <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2.5 border border-white/5 focus-within:border-primary/50 transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-muted"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                            <input type="text" id="v-model-search" placeholder="Search models..." class="bg-transparent border-none text-xs text-white focus:ring-0 w-full p-0">
+                            <input type="text" id="v-model-search" placeholder="${t('common.searchModels')}" class="bg-transparent border-none text-xs text-white focus:ring-0 w-full p-0">
                         </div>
                     </div>
                     <div class="text-[10px] font-bold text-secondary uppercase tracking-widest px-3 py-2 shrink-0">Video models</div>
@@ -577,7 +578,7 @@ export function VideoStudio() {
                             ${isV2V ? `<span class="text-[9px] text-orange-400/70">${m.imageField ? 'Upload a video and image' : 'Upload a video to use'}</span>` : ''}
                          </div>
                     </div>
-                    ${selectedModel === m.id ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    ${selectedModel === m.id ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -638,7 +639,7 @@ export function VideoStudio() {
                 if (filteredV2V.length > 0) {
                     const sectionLabel = document.createElement('div');
                     sectionLabel.className = 'text-[10px] font-bold text-orange-400/70 uppercase tracking-widest px-3 py-2 mt-1 border-t border-white/5';
-                    sectionLabel.textContent = 'Video Tools';
+                    sectionLabel.textContent = t('video.videoTools');
                     list.appendChild(sectionLabel);
                     filteredV2V.forEach(m => list.appendChild(makeModelItem(m, true)));
                 }
@@ -665,7 +666,7 @@ export function VideoStudio() {
                         </div>
                         <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100 transition-opacity">${r}</span>
                     </div>
-                     ${selectedAr === r ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                     ${selectedAr === r ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -688,7 +689,7 @@ export function VideoStudio() {
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
                 item.innerHTML = `
                     <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100">${d}s</span>
-                     ${selectedDuration === d ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                     ${selectedDuration === d ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -710,7 +711,7 @@ export function VideoStudio() {
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
                 item.innerHTML = `
                     <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100 capitalize">${q}</span>
-                    ${selectedQuality === q ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    ${selectedQuality === q ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -733,7 +734,7 @@ export function VideoStudio() {
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
                 item.innerHTML = `
                     <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100">${r}</span>
-                     ${selectedResolution === r ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                     ${selectedResolution === r ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -755,7 +756,7 @@ export function VideoStudio() {
                 item.className = 'flex items-center justify-between p-3.5 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
                 item.innerHTML = `
                     <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100 capitalize">${m}</span>
-                    ${selectedMode === m ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    ${selectedMode === m ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (e) => {
                     e.stopPropagation();
@@ -778,7 +779,7 @@ export function VideoStudio() {
                 item.className = 'flex items-center justify-between p-3 hover:bg-white/5 rounded-2xl cursor-pointer transition-all group';
                 item.innerHTML = `
                     <span class="text-xs font-bold text-white opacity-80 group-hover:opacity-100">${e}</span>
-                    ${selectedEffectName === e ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9ff00" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    ${selectedEffectName === e ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 `;
                 item.onclick = (ev) => {
                     ev.stopPropagation();
@@ -838,7 +839,7 @@ export function VideoStudio() {
 
     const historyLabel = document.createElement('div');
     historyLabel.className = 'text-[9px] font-bold text-muted uppercase tracking-widest mb-2';
-    historyLabel.textContent = 'History';
+    historyLabel.textContent = t('video.history');
     historySidebar.appendChild(historyLabel);
 
     const historyList = document.createElement('div');
@@ -868,20 +869,20 @@ export function VideoStudio() {
 
     const regenerateBtn = document.createElement('button');
     regenerateBtn.className = 'bg-white/10 hover:bg-white/20 px-6 py-2.5 rounded-2xl text-xs font-bold transition-all border border-white/5 backdrop-blur-lg text-white';
-    regenerateBtn.textContent = '↻ Regenerate';
+    regenerateBtn.textContent = t('video.regenerate');
 
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'bg-primary text-black px-6 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-glow active:scale-95';
-    downloadBtn.textContent = '↓ Download';
+    downloadBtn.textContent = t('video.download');
 
     const extendBtn = document.createElement('button');
     extendBtn.className = 'hidden bg-white/10 hover:bg-white/20 px-6 py-2.5 rounded-2xl text-xs font-bold transition-all border border-primary/30 text-primary backdrop-blur-lg';
-    extendBtn.textContent = '↗ Extend';
+    extendBtn.textContent = t('video.extend');
     extendBtn.title = 'Extend this video using Seedance 2.0 Extend';
 
     const newPromptBtn = document.createElement('button');
     newPromptBtn.className = 'bg-white/10 hover:bg-white/20 px-6 py-2.5 rounded-2xl text-xs font-bold transition-all border border-white/5 backdrop-blur-lg text-white';
-    newPromptBtn.textContent = '+ New';
+    newPromptBtn.textContent = t('video.new');
 
     canvasControls.appendChild(regenerateBtn);
     canvasControls.appendChild(extendBtn);
@@ -1127,14 +1128,15 @@ export function VideoStudio() {
 
         hero.classList.add('opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
         generateBtn.disabled = true;
-        generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> Generating...`;
+        generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> ${t('common.generating')}`;
 
         // For local generations, surface step progress in the button label.
         let unsubscribeProgress = null;
         if (isLocal) {
-            unsubscribeProgress = localAI.onProgress(({ status, progress }) => {
+            unsubscribeProgress = localAI.onProgress(({ status, progress, message }) => {
                 const pct = typeof progress === 'number' ? Math.round(progress * 100) : null;
-                generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> ${status || 'Generating'}${pct != null ? ` ${pct}%` : '…'}`;
+                const label = message || `${status || t('common.generating')}${pct != null ? ` ${pct}%` : '...'}`;
+                generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> ${label}`;
             });
         }
 
@@ -1170,7 +1172,7 @@ export function VideoStudio() {
                     throw new Error('No video URL returned by Wan2GP');
                 }
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = `Generate ✨`;
+                generateBtn.innerHTML = t('common.generate');
                 return;
             }
 
@@ -1191,7 +1193,7 @@ export function VideoStudio() {
                     throw new Error('No video URL returned by API');
                 }
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = `Generate ✨`;
+                generateBtn.innerHTML = t('common.generate');
                 return;
             }
 
@@ -1233,7 +1235,7 @@ export function VideoStudio() {
                     throw new Error('No video URL returned by API');
                 }
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = `Generate ✨`;
+                generateBtn.innerHTML = t('common.generate');
                 return;
             }
 
@@ -1295,13 +1297,13 @@ export function VideoStudio() {
             hero.classList.remove('opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
             generateBtn.innerHTML = `Error: ${e.message.slice(0, 60)}`;
             setTimeout(() => {
-                generateBtn.innerHTML = `Generate ✨`;
+                generateBtn.innerHTML = t('common.generate');
             }, 4000);
         } finally {
             generateBtn.disabled = false;
             if (typeof unsubscribeProgress === 'function') unsubscribeProgress();
             // Only reset the label on success; the catch timeout handles the error case
-            if (!hadError) generateBtn.innerHTML = `Generate ✨`;
+            if (!hadError) generateBtn.innerHTML = t('common.generate');
         }
     };
 
