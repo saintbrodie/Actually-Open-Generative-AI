@@ -1,8 +1,8 @@
-import { t2vModels } from './models.js';
+import { i2vModels, t2vModels } from './models.js';
 import { getFallbackPrivacyVideoModels } from './privacyVideoApi.js';
 
-function orderedPrivacyVideoModels() {
-  const models = getFallbackPrivacyVideoModels();
+function orderedPrivacyVideoModels(mode) {
+  const models = getFallbackPrivacyVideoModels(mode);
   if (typeof window === 'undefined') return models;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
@@ -13,7 +13,7 @@ function orderedPrivacyVideoModels() {
   return models;
 }
 
-function toStudioModel(model) {
+function baseStudioModel(model) {
   const aspectRatios = model.supportedAspectRatios || [];
   const durations = model.supportedDurations || [];
   const resolutions = model.supportedResolutions || [];
@@ -24,7 +24,6 @@ function toStudioModel(model) {
     provider: model.provider,
     provider_name: model.provider === 'openrouter' ? 'OpenRouter' : 'Venice',
     promptRequired: true,
-    required: ['prompt'],
     inputs: {
       prompt: {
         type: 'string',
@@ -69,9 +68,38 @@ function toStudioModel(model) {
   };
 }
 
-const existing = new Set(t2vModels.map((model) => model.id));
-const additions = orderedPrivacyVideoModels()
-  .filter((model) => !existing.has(model.id))
-  .map(toStudioModel);
+function toT2VModel(model) {
+  return {
+    ...baseStudioModel(model),
+    required: ['prompt'],
+  };
+}
 
-t2vModels.unshift(...additions);
+function toI2VModel(model) {
+  return {
+    ...baseStudioModel(model),
+    imageField: model.imageField || 'image_url',
+    maxImages: model.maxImages || 1,
+    required: ['prompt', model.imageField || 'image_url'],
+    inputs: {
+      ...baseStudioModel(model).inputs,
+      [model.imageField || 'image_url']: {
+        type: 'string',
+        field: 'image',
+        title: 'Start frame',
+        name: model.imageField || 'image_url',
+      },
+    },
+  };
+}
+
+function prependMissing(target, models, mapper) {
+  const existing = new Set(target.map((model) => model.id));
+  const additions = models
+    .filter((model) => !existing.has(model.id))
+    .map(mapper);
+  target.unshift(...additions);
+}
+
+prependMissing(t2vModels, orderedPrivacyVideoModels('t2v'), toT2VModel);
+prependMissing(i2vModels, orderedPrivacyVideoModels('i2v'), toI2VModel);
