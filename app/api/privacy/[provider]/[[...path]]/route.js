@@ -3,6 +3,26 @@ const PROVIDER_TARGETS = {
   openrouter: 'https://openrouter.ai/api/v1',
 };
 
+const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
+
+const ALLOWED_PATHS = {
+  venice: [
+    /^models$/,
+    /^image\/(?:generate|edit|multi-edit)$/,
+    /^video\/(?:queue|retrieve)$/,
+  ],
+  openrouter: [
+    /^images(?:\/models)?$/,
+    /^videos(?:\/models)?$/,
+    /^videos\/[^/]+$/,
+    /^videos\/[^/]+\/content$/,
+  ],
+};
+
+function isAllowedPath(provider, path) {
+  return ALLOWED_PATHS[provider]?.some((pattern) => pattern.test(path)) || false;
+}
+
 async function proxyProviderRequest(request, context) {
   const { provider, path = [] } = await context.params;
   const target = PROVIDER_TARGETS[provider];
@@ -11,8 +31,18 @@ async function proxyProviderRequest(request, context) {
   }
 
   const segments = Array.isArray(path) ? path : [path];
+  const rawPath = segments.filter(Boolean).join('/');
+  if (!isAllowedPath(provider, rawPath)) {
+    return Response.json({ error: 'Provider endpoint is not allowed by this proxy' }, { status: 404 });
+  }
+
+  const contentLength = Number.parseInt(request.headers.get('content-length') || '0', 10);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
   const suffix = segments.filter(Boolean).map(encodeURIComponent).join('/');
-  const upstreamUrl = `${target}${suffix ? `/${suffix}` : ''}${request.nextUrl.search}`;
+  const upstreamUrl = `${target}/${suffix}${request.nextUrl.search}`;
 
   // Deliberately forward only the headers required by the provider. Cookies,
   // internal auth headers, and other browser metadata never leave the app.
@@ -38,7 +68,11 @@ async function proxyProviderRequest(request, context) {
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
-    init.body = await request.arrayBuffer();
+    const body = await request.arrayBuffer();
+    if (body.byteLength > MAX_REQUEST_BYTES) {
+      return Response.json({ error: 'Request body too large' }, { status: 413 });
+    }
+    init.body = body;
   }
 
   try {
@@ -47,6 +81,7 @@ async function proxyProviderRequest(request, context) {
     const responseContentType = upstream.headers.get('content-type');
     if (responseContentType) responseHeaders.set('content-type', responseContentType);
     responseHeaders.set('cache-control', 'no-store');
+    responseHeaders.set('x-content-type-options', 'nosniff');
 
     return new Response(upstream.body, {
       status: upstream.status,
