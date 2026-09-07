@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
     validatePath,
+    validHttpReferer,
     filteredHeaders,
     prepareProviderRequest,
 } = require('../electron/lib/providerProxy');
@@ -38,6 +39,15 @@ test('provider proxy never honors a caller-supplied external origin', () => {
     assert.equal(request.url, 'https://openrouter.ai/api/v1/images?x=1');
 });
 
+test('provider proxy accepts only HTTP(S) OpenRouter referers', () => {
+    assert.equal(validHttpReferer('https://example.test/app'), 'https://example.test/app');
+    assert.equal(validHttpReferer('http://localhost:5173'), 'http://localhost:5173/');
+    assert.equal(validHttpReferer('null'), null);
+    assert.equal(validHttpReferer('file:///tmp/index.html'), null);
+    assert.equal(validHttpReferer('javascript:alert(1)'), null);
+    assert.equal(validHttpReferer('not a url'), null);
+});
+
 test('provider proxy filters headers and normalizes casing', () => {
     assert.deepEqual(
         filteredHeaders('openrouter', {
@@ -51,7 +61,19 @@ test('provider proxy filters headers and normalizes casing', () => {
         {
             authorization: 'Bearer secret',
             'content-type': 'application/json',
-            'http-referer': 'https://example.test',
+            'http-referer': 'https://example.test/',
+            'x-title': 'Actually Open',
+        }
+    );
+
+    assert.deepEqual(
+        filteredHeaders('openrouter', {
+            Authorization: 'Bearer secret',
+            'HTTP-Referer': 'null',
+            'X-Title': 'Actually Open',
+        }),
+        {
+            authorization: 'Bearer secret',
             'x-title': 'Actually Open',
         }
     );
