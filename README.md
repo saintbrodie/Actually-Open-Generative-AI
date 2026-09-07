@@ -65,7 +65,13 @@ Hosted Next.js app / React Studio
         │
         └── unported workflow ────────> upstream compatibility client
 
-Electron / Vite app
+Vite development shell
+        │
+        ├── BYOK image/video model ──> /api/privacy/{provider}
+        │                               └── allow-listed Vite dev proxy ──> provider
+        └── unported workflow ────────> upstream compatibility proxy
+
+Electron / packaged Vite app
         │
         ├── BYOK image/video model ──> renderer fetch bridge
         │                               └── narrow Electron IPC proxy ──> Venice / OpenRouter
@@ -74,6 +80,8 @@ Electron / Vite app
 ```
 
 The Electron transport deliberately keeps Chromium `webSecurity` and context isolation enabled. Provider-origin requests are intercepted only for the Venice/OpenRouter API roots and sent through an IPC handler that independently validates the provider, endpoint, method, forwarded headers, and request size. Unrelated renderer `fetch()` traffic is not intercepted.
+
+The Vite development server mirrors the same provider endpoint families instead of acting as an unrestricted Venice/OpenRouter proxy. Unsupported provider paths are rejected before Vite forwards the request.
 
 Important files:
 
@@ -85,6 +93,7 @@ packages/studio/src/privacyVideoModelsBootstrap.js BYOK video catalog injection
 packages/studio/src/muapi.js                       React provider/compatibility router
 packages/studio/src/upstreamMuapi.js               Preserved upstream API client
 app/api/privacy/.../route.js                       Hosted allow-listed streaming provider proxy
+vite.config.mjs                                    Allow-listed Vite development provider proxies
 src/lib/muapi.js                                   Vite/Electron provider/compatibility router
 src/lib/providerFetchBridge.js                     Electron renderer provider-fetch bridge
 electron/lib/providerProxy.js                      Electron main-process endpoint allow-list/transport
@@ -93,10 +102,11 @@ src/lib/upstreamMuapi.js                           Preserved upstream Vite clien
 
 ## Privacy notes
 
-- Provider keys are stored in the browser profile's `localStorage` today. That is convenient, but it is **not equivalent to OS-keychain storage** and any successful same-origin XSS could read them.
+- Provider keys are stored in the browser/app profile's `localStorage` today. That is convenient, but it is **not equivalent to OS-keychain storage** and any successful same-origin XSS could read them.
 - In the hosted Next.js app, provider calls pass through this app's own allow-listed `/api/privacy/...` proxy to avoid CORS problems. The application code does not persist or intentionally log the Authorization header, but operators should also configure reverse proxies and infrastructure logs not to record request headers.
+- Vite development uses scoped `/api/privacy/...` proxies with the same media/model endpoint families rather than exposing arbitrary provider API paths.
 - In Electron, provider calls cross the context-isolated preload IPC bridge and are issued by the main process. This avoids weakening `webSecurity` or relying on providers to accept `file://`/`Origin: null` renderer requests.
-- Both hosted and Electron provider transports use explicit media/model endpoint allow-lists and reject unsupported methods. The Electron proxy also filters renderer-supplied headers before forwarding them.
+- Hosted, Vite-development, and Electron provider transports all restrict the provider API surface they can reach. The Electron proxy additionally filters renderer-supplied headers and enforces its request-size ceiling in the main process.
 - BYOK-only image reference uploads are converted to browser data URLs rather than being uploaded to the compatibility backend first. Venice's image-edit and video-queue APIs can consume those data URLs directly.
 - **BYOK does not mean zero retention.** Provider privacy, retention, moderation, and billing policies still apply. In particular, OpenRouter's asynchronous video API is not eligible for Zero Data Retention because generated video must be retained briefly for polling and download.
 - Venice currently labels the bootstrap Seedance video models as **Anonymized**, not Private. Direct-provider routing removes the fork's compatibility middleman; it does not change the provider's own privacy classification.
@@ -142,7 +152,7 @@ Image sizing is capability-aware where the provider exposes structured metadata.
 
 ### Video
 
-- **OpenRouter:** `POST /api/v1/videos`, then poll `GET /api/v1/videos/{jobId}` until completion and consume `unsigned_urls` or the authenticated `/content` endpoint.
+- **OpenRouter:** `POST /api/v1/videos`, then poll `GET /api/v1/videos/{jobId}` until completion. Completed assets are fetched through the authenticated `GET /api/v1/videos/{jobId}/content?index=0` endpoint and exposed to the UI as a local blob URL. The adapter does not hand an OpenRouter-hosted `unsigned_urls` value directly to `<video>` because current OpenRouter content URLs still require bearer authentication.
 - **Venice:** `POST /api/v1/video/queue`, then poll `POST /api/v1/video/retrieve`; the same queue accepts `image_url` data URLs for supported I2V models. Completion can return either raw `video/mp4` or JSON plus the pre-signed `download_url` returned at queue time.
 
 The standalone Vite shell wraps provider job IDs in a small synthetic ID so its existing pending-generation resume mechanism can resume direct-provider jobs after a reload.
@@ -159,7 +169,7 @@ npm run build
 npm run vite:build
 ```
 
-The Node suite now includes security-contract checks for the Electron provider proxy: endpoint allow-listing, fixed provider origins, method rejection, and header filtering. CI also catches workspace, Next.js, and Vite integration regressions. Provider adapters still need mocked request/response contract tests and manual live-key smoke tests because a build cannot validate billing, authorization, or real provider behavior.
+The Node suite includes security-contract checks for the Electron provider proxy: endpoint allow-listing, fixed provider origins, method rejection, and header filtering. CI also parses the Vite proxy configuration and catches workspace, Next.js, and Vite integration regressions. Provider adapters still need mocked request/response contract tests and manual live-key smoke tests because a build cannot validate billing, authorization, or real provider behavior.
 
 ## Roadmap
 
