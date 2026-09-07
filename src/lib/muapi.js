@@ -15,8 +15,8 @@ export class MuapiClient extends UpstreamMuapiClient {
         if (key === PRIVACY_SENTINEL) {
             throw new Error(
                 'This feature is not yet available through the BYOK provider adapters. ' +
-                'Choose a Venice/OpenRouter image or text-to-video model, use local inference, ' +
-                'or add a MuAPI key for compatibility features.'
+                'Choose a Venice/OpenRouter image or text-to-video model, a Venice image-to-video model, ' +
+                'use local inference, or add a MuAPI key for compatibility features.'
             );
         }
         return key;
@@ -43,6 +43,13 @@ export class MuapiClient extends UpstreamMuapiClient {
         return super.generateVideo(params);
     }
 
+    async generateI2V(params) {
+        if (isPrivacyVideoModelId(params?.model)) {
+            return privacyVideoApi.generateI2V(params);
+        }
+        return super.generateI2V(params);
+    }
+
     async pollForResult(requestId, key, maxAttempts = 900, interval = 2000) {
         if (isPrivacyVideoJobId(requestId)) {
             return privacyVideoApi.pollForResult(requestId, { maxAttempts, interval });
@@ -52,7 +59,8 @@ export class MuapiClient extends UpstreamMuapiClient {
 
     async uploadFile(file) {
         // Do not send BYOK-only image references through the compatibility
-        // uploader. Data URLs can be consumed directly by Venice/OpenRouter.
+        // uploader. Data URLs can be consumed directly by Venice image/edit
+        // and video queue APIs.
         if (localStorage.getItem('muapi_key') === PRIVACY_SENTINEL) {
             return privacyApi.fileToDataUrl(file);
         }
