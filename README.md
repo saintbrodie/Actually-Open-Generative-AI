@@ -8,6 +8,7 @@ This branch is synced to upstream as of **September 6, 2026**.
 
 - **Direct-provider image generation and editing** with your own **Venice** or **OpenRouter** key.
 - **Direct-provider text-to-video** with normalized async queue/poll handling for Venice and OpenRouter.
+- **Direct Venice image-to-video** using local browser data-URL references rather than the compatibility uploader.
 - **Local inference** remains available in the desktop/Electron build.
 - **Upstream stays intact behind a compatibility layer** instead of deleting large parts of the application and breaking studios that depend on them.
 - **No third-party promo banner** in the fork UI.
@@ -24,13 +25,13 @@ The long-term goal is a fully provider-agnostic application. It is not there yet
 | Image-to-image / reference editing | ✅ | ✅ | model-dependent | ✅ |
 | Runtime image-model discovery API | ✅ adapter | ✅ adapter | n/a | n/a |
 | Text-to-video | ✅ | ✅ | ✅ Wan2GP models | ✅ |
-| Image/reference-to-video | 🚧 | 🚧 | ✅ supported Wan2GP models | ✅ |
-| Video-to-video / specialized video tools | 🚧 | 🚧 | model-dependent | ✅ |
+| Image-to-video | ✅ | 🚧 | ✅ supported Wan2GP models | ✅ |
+| Reference-to-video / V2V | 🚧 | 🚧 | model-dependent | ✅ |
 | Lip sync / audio / clipping | 🚧 | 🚧 | model-dependent | ✅ |
 | Layers / Recast / specialized image tools | 🚧 | 🚧 | model-dependent | ✅ |
 | Agents / workflow integrations | 🚧 | 🚧 | n/a | ✅ |
 
-The UI currently injects known-good BYOK image and text-to-video defaults into upstream's existing family pickers. Provider discovery helpers are implemented, but the React picker is not yet rebuilt reactively from live discovery results.
+The UI currently injects known-good BYOK image and video defaults into upstream's existing family pickers. Provider discovery helpers are implemented, but the React picker is not yet rebuilt reactively from live discovery results.
 
 ### Current direct-provider defaults
 
@@ -39,6 +40,7 @@ The UI currently injects known-good BYOK image and text-to-video defaults into u
 - I2I: `nano-banana-pro-edit` (single image)
 - Multi-image edit: up to 3 input images
 - T2V: `seedance-2-0-fast-text-to-video`
+- I2V: `seedance-2-0-fast-image-to-video`
 
 **OpenRouter**
 - T2I: `bytedance-seed/seedream-4.5`
@@ -73,15 +75,15 @@ Electron / Vite app
 Important files:
 
 ```text
-packages/studio/src/privacyApi.js                 Shared Venice/OpenRouter image adapter
-packages/studio/src/privacyModelsBootstrap.js     BYOK image catalog injection
-packages/studio/src/privacyVideoApi.js            Shared Venice/OpenRouter async video adapter
+packages/studio/src/privacyApi.js                  Shared Venice/OpenRouter image adapter
+packages/studio/src/privacyModelsBootstrap.js      BYOK image catalog injection
+packages/studio/src/privacyVideoApi.js             Shared Venice/OpenRouter async video adapter
 packages/studio/src/privacyVideoModelsBootstrap.js BYOK video catalog injection
-packages/studio/src/muapi.js                      React provider/compatibility router
-packages/studio/src/upstreamMuapi.js              Preserved upstream API client
-app/api/privacy/.../route.js                      Hosted allow-listed streaming provider proxy
-src/lib/muapi.js                                  Vite/Electron provider/compatibility router
-src/lib/upstreamMuapi.js                          Preserved upstream Vite client
+packages/studio/src/muapi.js                       React provider/compatibility router
+packages/studio/src/upstreamMuapi.js               Preserved upstream API client
+app/api/privacy/.../route.js                       Hosted allow-listed streaming provider proxy
+src/lib/muapi.js                                   Vite/Electron provider/compatibility router
+src/lib/upstreamMuapi.js                           Preserved upstream Vite client
 ```
 
 ## Privacy notes
@@ -89,9 +91,9 @@ src/lib/upstreamMuapi.js                          Preserved upstream Vite client
 - Provider keys are stored in the browser profile's `localStorage` today. That is convenient, but it is **not equivalent to OS-keychain storage** and any successful same-origin XSS could read them.
 - In the hosted Next.js app, provider calls pass through this app's own allow-listed `/api/privacy/...` proxy to avoid CORS problems. The application code does not persist or intentionally log the Authorization header, but operators should also configure reverse proxies and infrastructure logs not to record request headers.
 - In Electron's `file://` renderer, provider calls can go directly to the provider.
-- BYOK-only image reference uploads are converted to browser data URLs rather than being uploaded to the compatibility backend first.
+- BYOK-only image reference uploads are converted to browser data URLs rather than being uploaded to the compatibility backend first. Venice's image-edit and video-queue APIs can consume those data URLs directly.
 - **BYOK does not mean zero retention.** Provider privacy, retention, moderation, and billing policies still apply. In particular, OpenRouter's asynchronous video API is not eligible for Zero Data Retention because generated video must be retained briefly for polling and download.
-- Venice currently labels the bootstrap Seedance video model as **Anonymized**, not Private. Direct-to-provider routing removes the fork's compatibility middleman; it does not change the provider's own privacy classification.
+- Venice currently labels the bootstrap Seedance video models as **Anonymized**, not Private. Direct-to-provider routing removes the fork's compatibility middleman; it does not change the provider's own privacy classification.
 - A MuAPI key is optional and is used only for features that have not yet been ported to direct-provider adapters.
 
 ## Quick start
@@ -135,7 +137,7 @@ Image sizing is capability-aware where the provider exposes structured metadata.
 ### Video
 
 - **OpenRouter:** `POST /api/v1/videos`, then poll `GET /api/v1/videos/{jobId}` until completion and consume `unsigned_urls` or the authenticated `/content` endpoint.
-- **Venice:** `POST /api/v1/video/queue`, then poll `POST /api/v1/video/retrieve`; completion can return either raw `video/mp4` or JSON plus the pre-signed `download_url` returned at queue time.
+- **Venice:** `POST /api/v1/video/queue`, then poll `POST /api/v1/video/retrieve`; the same queue accepts `image_url` data URLs for supported I2V models. Completion can return either raw `video/mp4` or JSON plus the pre-signed `download_url` returned at queue time.
 
 The standalone Vite shell wraps provider job IDs in a small synthetic ID so its existing pending-generation resume mechanism can resume direct-provider jobs after a reload.
 
@@ -156,14 +158,13 @@ This catches workspace, Next.js, and Vite integration regressions. Provider adap
 ## Roadmap
 
 1. Wire live provider discovery into the React image/video family pickers with reactive refresh.
-2. Add direct Venice image-to-video, which can consume the same local data-URL reference path used by BYOK image editing.
-3. Design a privacy-preserving hosted-reference strategy before enabling OpenRouter I2V/reference video paths that require stable externally reachable media URLs.
-4. Expand direct video coverage from T2V to I2V/V2V and provider-specific multimodal controls through capability metadata rather than studio-specific conditionals.
-5. Replace the compatibility-key sentinel with first-class per-studio capability/auth state.
-6. Move desktop secrets to OS-backed secure storage and offer session-only browser keys.
-7. Add adapter contract tests with mocked provider responses and payload assertions.
-8. Make mixed compatibility+BYOK sessions use model-aware upload routing so selecting a BYOK model always keeps compatible references local.
-9. Continue reducing compatibility-backend usage feature by feature instead of removing it all at once.
+2. Design a privacy-preserving hosted-reference strategy before enabling OpenRouter I2V/reference video paths that require stable externally reachable media URLs.
+3. Expand direct video coverage to Venice/OpenRouter reference-to-video, V2V, and provider-specific multimodal controls through capability metadata rather than studio-specific conditionals.
+4. Replace the compatibility-key sentinel with first-class per-studio capability/auth state.
+5. Move desktop secrets to OS-backed secure storage and offer session-only browser keys.
+6. Add adapter contract tests with mocked provider responses and payload assertions.
+7. Make mixed compatibility+BYOK sessions use model-aware upload routing so selecting a BYOK model always keeps compatible references local.
+8. Continue reducing compatibility-backend usage feature by feature instead of removing it all at once.
 
 ## Upstream
 
