@@ -21,7 +21,7 @@ const FALLBACK_MODELS = [
     name: 'Nano Banana Pro · Venice',
     provider: 'venice',
     supportedParameters: {
-      aspect_ratio: { type: 'enum', values: ['1:1', '16:9', '9:16', '4:3', '3:4'] },
+      aspect_ratio: { type: 'enum', values: ['1:1', '3:2', '16:9', '21:9', '9:16', '2:3', '3:4', '4:5'] },
       resolution: { type: 'enum', values: ['1K', '2K', '4K'] },
       seed: { type: 'boolean' },
     },
@@ -32,7 +32,7 @@ const FALLBACK_MODELS = [
     name: 'Seedream 4.5 · OpenRouter',
     provider: 'openrouter',
     supportedParameters: {
-      aspect_ratio: { type: 'enum', values: ['1:1', '16:9', '9:16', '4:3', '3:4'] },
+      aspect_ratio: { type: 'enum', values: ['1:1', '1:2', '2:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9', 'auto'] },
       resolution: { type: 'enum', values: ['1K', '2K', '4K'] },
       seed: { type: 'boolean' },
     },
