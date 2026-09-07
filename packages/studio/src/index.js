@@ -1,6 +1,7 @@
 "use client";
 
 import './privacyModelsBootstrap.js';
+import './privacyVideoModelsBootstrap.js';
 
 export { default as ImageStudio } from './components/ImageStudio';
 export { default as VideoStudio } from './components/VideoStudio';
