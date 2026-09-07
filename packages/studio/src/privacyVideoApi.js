@@ -226,7 +226,11 @@ async function pollOpenRouter(job, maxAttempts = 120, interval = 5000) {
     const data = await response.json();
     const status = String(data.status || '').toLowerCase();
     if (status === 'completed') {
-      const url = data.unsigned_urls?.[0] || await openRouterContent(job.remoteId);
+      // OpenRouter's `unsigned_urls` name is misleading: current video docs
+      // explicitly say OpenRouter API content URLs still require the bearer
+      // token. A <video src> cannot attach that header, so always download the
+      // completed asset through authenticated fetch and expose a local blob URL.
+      const url = await openRouterContent(job.remoteId);
       return { ...data, id: job.remoteId, request_id: job.syntheticId, url };
     }
     if (['failed', 'cancelled', 'expired'].includes(status)) {
