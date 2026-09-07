@@ -31,36 +31,47 @@ function validatePath(provider, rawPath) {
 }
 
 function filteredHeaders(provider, input = {}) {
+    const normalized = Object.fromEntries(
+        Object.entries(input).map(([key, value]) => [String(key).toLowerCase(), value])
+    );
     const headers = {};
     for (const key of ['authorization', 'content-type']) {
-        if (input[key]) headers[key] = String(input[key]);
+        if (normalized[key]) headers[key] = String(normalized[key]);
     }
     if (provider === 'openrouter') {
-        if (input['http-referer']) headers['http-referer'] = String(input['http-referer']);
-        if (input['x-title']) headers['x-title'] = String(input['x-title']);
+        if (normalized['http-referer']) headers['http-referer'] = String(normalized['http-referer']);
+        if (normalized['x-title']) headers['x-title'] = String(normalized['x-title']);
     }
     return headers;
 }
 
-function register() {
-    ipcMain.handle('provider-api:request', async (_event, request = {}) => {
-        const provider = request.provider;
-        const path = validatePath(provider, request.path || '/');
-        const method = String(request.method || 'GET').toUpperCase();
-        if (!['GET', 'POST'].includes(method)) throw new Error('Unsupported provider request method');
+function prepareProviderRequest(request = {}) {
+    const provider = request.provider;
+    const path = validatePath(provider, request.path || '/');
+    const method = String(request.method || 'GET').toUpperCase();
+    if (!['GET', 'POST'].includes(method)) throw new Error('Unsupported provider request method');
 
-        const body = request.body == null ? null : String(request.body);
-        if (body && Buffer.byteLength(body, 'utf8') > MAX_REQUEST_BYTES) {
-            throw new Error('Provider request body is too large');
-        }
+    const body = request.body == null ? null : String(request.body);
+    if (body && Buffer.byteLength(body, 'utf8') > MAX_REQUEST_BYTES) {
+        throw new Error('Provider request body is too large');
+    }
 
-        const response = await fetch(`${PROVIDER_TARGETS[provider]}${path}`, {
+    return {
+        url: `${PROVIDER_TARGETS[provider]}${path}`,
+        init: {
             method,
             headers: filteredHeaders(provider, request.headers),
             body: method === 'POST' ? body : undefined,
             redirect: 'follow',
             cache: 'no-store',
-        });
+        },
+    };
+}
+
+function register() {
+    ipcMain.handle('provider-api:request', async (_event, request = {}) => {
+        const { url, init } = prepareProviderRequest(request);
+        const response = await fetch(url, init);
 
         // Returning raw bytes through structured clone keeps JSON, images, and
         // video on one transport without teaching the main process provider-
@@ -78,4 +89,10 @@ function register() {
     });
 }
 
-module.exports = { register };
+module.exports = {
+    register,
+    validatePath,
+    filteredHeaders,
+    prepareProviderRequest,
+    MAX_REQUEST_BYTES,
+};
