@@ -32,6 +32,13 @@ export async function generateVideo(apiKey, params) {
   return upstream.generateVideo(apiKey, params);
 }
 
+export async function generateI2V(apiKey, params) {
+  if (isPrivacyVideoModelId(params?.model)) {
+    return privacyVideoApi.generateI2V(params);
+  }
+  return upstream.generateI2V(apiKey, params);
+}
+
 export function uploadFile(apiKey, file, onProgress) {
   // In a BYOK-only session, keep image references in the browser as data URLs.
   // This prevents the source image from being uploaded to the compatibility
