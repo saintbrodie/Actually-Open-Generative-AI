@@ -37,8 +37,8 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
     else localStorage.removeItem('openrouter_api_key');
 
     // StandaloneShell still expects one compatibility key prop. A sentinel lets
-    // the image studio mount while direct-provider generation reads the real
-    // Venice/OpenRouter key from localStorage. It is never sent to a provider.
+    // the directly supported studios mount while provider generation reads the
+    // real Venice/OpenRouter key from localStorage. It is never sent upstream.
     onSave(muapi || PRIVACY_SENTINEL);
 
     // The model-family picker is built at module load. Reloading after a BYOK-
@@ -78,7 +78,7 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
             {title || 'Bring Your Own Key'}
           </h1>
           <p className="text-white/40 text-[13px] leading-relaxed px-4">
-            {subtitle || 'Use Venice or OpenRouter directly for image generation. Add a compatibility key only for upstream-only tools.'}
+            {subtitle || 'Use Venice or OpenRouter directly for supported image and video generation. Add a compatibility key only for tools that have not been ported yet.'}
           </p>
         </div>
 
@@ -116,7 +116,7 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
                 autoComplete="off"
                 value={muapiKey}
                 onChange={(e) => { setMuapiKey(e.target.value); setError(''); }}
-                placeholder="Video, lip-sync, agents, and unported tools"
+                placeholder="Unported video tools, lip-sync, agents, workflows, and specialty studios"
                 className="w-full bg-white/5 border border-white/[0.05] rounded-md px-5 py-3 text-sm text-white placeholder:text-white/10 focus:outline-none focus:ring-1 focus:ring-[#22d3ee]/30"
               />
             </div>
