@@ -1,14 +1,15 @@
 import * as upstream from './upstreamMuapi.js';
 import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
+import { isPrivacyVideoModelId, privacyVideoApi } from './privacyVideoApi.js';
 
 export * from './upstreamMuapi.js';
 
 /**
  * Compatibility router for the React/Next studio package.
  *
- * Privacy-prefixed image models bypass the upstream API entirely. Other cloud
- * tools continue through the upstream compatibility client until a matching
- * direct-provider adapter exists.
+ * Privacy-prefixed image/video models bypass the upstream API entirely. Other
+ * cloud tools continue through the upstream compatibility client until a
+ * matching direct-provider adapter exists.
  */
 export async function generateImage(apiKey, params) {
   if (isPrivacyModelId(params?.model)) {
@@ -22,6 +23,13 @@ export async function generateI2I(apiKey, params) {
     return privacyApi.generateI2I(params);
   }
   return upstream.generateI2I(apiKey, params);
+}
+
+export async function generateVideo(apiKey, params) {
+  if (isPrivacyVideoModelId(params?.model)) {
+    return privacyVideoApi.generateVideo(params);
+  }
+  return upstream.generateVideo(apiKey, params);
 }
 
 export function uploadFile(apiKey, file, onProgress) {
