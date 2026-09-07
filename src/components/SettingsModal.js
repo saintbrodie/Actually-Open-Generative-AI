@@ -48,7 +48,7 @@ export function SettingsModal(onClose) {
         <div style="display:flex;flex-direction:column;gap:1rem;">
             <div style="padding:0.9rem 1rem;border:1px solid rgba(34,211,238,0.16);background:rgba(34,211,238,0.04);border-radius:0.75rem;">
                 <div style="font-size:0.75rem;font-weight:800;color:#fff;margin-bottom:0.25rem;">Direct-provider BYOK</div>
-                <div style="font-size:0.7rem;color:rgba(255,255,255,0.45);line-height:1.5;">Venice and OpenRouter keys are used directly for supported image generation. They are not sent to the compatibility backend.</div>
+                <div style="font-size:0.7rem;color:rgba(255,255,255,0.45);line-height:1.5;">Venice and OpenRouter keys are used for supported image and video generation without sending those requests through the compatibility backend.</div>
             </div>
 
             <div>
@@ -72,11 +72,11 @@ export function SettingsModal(onClose) {
                     <input id="settings-muapi-key" type="password" autocomplete="off"
                         style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.6rem 0.9rem;color:#fff;font-size:0.875rem;outline:none;"
                         placeholder="Required only for upstream-only workflows">
-                    <p style="font-size:0.68rem;color:rgba(255,255,255,0.3);margin:0.5rem 0 0;line-height:1.5;">Some video, lip-sync, agent, upload/edit, and other upstream features have not been ported to direct providers yet.</p>
+                    <p style="font-size:0.68rem;color:rgba(255,255,255,0.3);margin:0.5rem 0 0;line-height:1.5;">Some reference/V2V tools, lip-sync, agent, workflow, specialty image, and other upstream features have not been ported to direct providers yet.</p>
                 </div>
             </details>
 
-            <p style="font-size:0.7rem;color:rgba(255,255,255,0.3);margin:0;line-height:1.5;">Keys are stored in this browser profile. For stronger secret storage, use the desktop build once OS-keychain support is added.</p>
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.3);margin:0;line-height:1.5;">Keys are stored in this app profile today. OS-keychain-backed desktop secret storage is still on the roadmap.</p>
 
             <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.25rem;">
                 <button id="settings-cancel-btn" style="padding:0.5rem 1rem;border-radius:0.5rem;background:none;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);font-size:0.75rem;font-weight:700;cursor:pointer;">${t('common.cancel')}</button>
