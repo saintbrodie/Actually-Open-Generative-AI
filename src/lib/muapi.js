@@ -1,6 +1,12 @@
 import { MuapiClient as UpstreamMuapiClient } from './upstreamMuapi.js';
 import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
 import { isPrivacyVideoJobId, isPrivacyVideoModelId, privacyVideoApi } from 'studio/src/privacyVideoApi.js';
+import { installProviderFetchBridge } from './providerFetchBridge.js';
+
+// Electron keeps Chromium webSecurity enabled. Install the narrow provider
+// transport before any user-initiated BYOK call so provider-origin requests use
+// the preload/main-process IPC bridge instead of relying on file:// CORS.
+installProviderFetchBridge();
 
 /**
  * Compatibility router for the standalone Vite/Electron shell.
