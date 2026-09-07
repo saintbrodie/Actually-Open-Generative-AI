@@ -1,18 +1,9 @@
 import * as upstream from './upstreamMuapi.js';
 import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
 import { isPrivacyVideoModelId, privacyVideoApi } from './privacyVideoApi.js';
+import { requireCompatibilityKey } from './compatibilityAuth.js';
 
 export * from './upstreamMuapi.js';
-
-const COMPATIBILITY_KEY_REQUIRED_MESSAGE =
-  'This tool has not been ported to direct BYOK providers yet. Add a MuAPI compatibility key in Settings, or choose a Venice/OpenRouter model in a directly supported studio.';
-
-function requireCompatibilityKey(apiKey) {
-  if (!apiKey || apiKey === PRIVACY_SENTINEL) {
-    throw new Error(COMPATIBILITY_KEY_REQUIRED_MESSAGE);
-  }
-  return apiKey;
-}
 
 function compatibilityCall(name) {
   return (...args) => {
