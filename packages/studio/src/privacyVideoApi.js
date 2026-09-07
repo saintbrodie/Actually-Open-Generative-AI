@@ -21,6 +21,7 @@ const FALLBACK_T2V_MODELS = [
     rawId: 'seedance-2-0-fast-text-to-video',
     name: 'Seedance 2.0 Fast · Venice',
     provider: 'venice',
+    mode: 't2v',
     supportedDurations: [5],
     supportedResolutions: ['720p'],
     supportedAspectRatios: ['16:9'],
@@ -30,13 +31,30 @@ const FALLBACK_T2V_MODELS = [
     rawId: 'bytedance/seedance-2.0-fast',
     name: 'Seedance 2.0 Fast · OpenRouter',
     provider: 'openrouter',
+    mode: 't2v',
     supportedDurations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     supportedResolutions: ['480p', '720p'],
     supportedAspectRatios: ['1:1', '3:4', '9:16', '4:3', '16:9', '21:9', '9:21'],
   },
 ];
 
-const modelRegistry = new Map(FALLBACK_T2V_MODELS.map((model) => [model.id, model]));
+const FALLBACK_I2V_MODELS = [
+  {
+    id: 'privacy-video:venice:seedance-2-0-fast-image-to-video',
+    rawId: 'seedance-2-0-fast-image-to-video',
+    name: 'Seedance 2.0 Fast I2V · Venice',
+    provider: 'venice',
+    mode: 'i2v',
+    imageField: 'image_url',
+    maxImages: 1,
+    supportedDurations: [5],
+    supportedResolutions: ['720p'],
+    supportedAspectRatios: ['16:9'],
+  },
+];
+
+const FALLBACK_MODELS = [...FALLBACK_T2V_MODELS, ...FALLBACK_I2V_MODELS];
+const modelRegistry = new Map(FALLBACK_MODELS.map((model) => [model.id, model]));
 
 function storage() {
   return typeof window !== 'undefined' ? window.localStorage : null;
@@ -177,8 +195,9 @@ export function isPrivacyVideoJobId(value) {
   return Boolean(parseJobId(value));
 }
 
-export function getFallbackPrivacyVideoModels() {
-  return FALLBACK_T2V_MODELS.map((model) => ({ ...model }));
+export function getFallbackPrivacyVideoModels(mode = 't2v') {
+  const source = mode === 'i2v' ? FALLBACK_I2V_MODELS : FALLBACK_T2V_MODELS;
+  return source.map((model) => ({ ...model }));
 }
 
 function addVideoControls(payload, model, params) {
@@ -277,10 +296,12 @@ async function pollVenice(job, maxAttempts = 180, interval = 5000) {
   throw new Error('Venice video generation timed out.');
 }
 
-async function generateVenice(model, params) {
+async function queueVenice(model, params) {
   const payload = { model: model.rawId, prompt: params.prompt };
   addVideoControls(payload, model, params);
   if (typeof params.audio === 'boolean') payload.audio = params.audio;
+  if (params.image_url) payload.image_url = params.image_url;
+  if (params.last_image) payload.end_image_url = params.last_image;
 
   const response = await fetch(`${baseUrlFor('venice')}/video/queue`, {
     method: 'POST',
@@ -317,8 +338,19 @@ export const privacyVideoApi = {
     if (!model) throw new Error(`Unknown privacy video model: ${params?.model}`);
     if (!params?.prompt?.trim()) throw new Error('A prompt is required for text-to-video generation.');
     if (model.provider === 'openrouter') return generateOpenRouter(model, params);
-    if (model.provider === 'venice') return generateVenice(model, params);
+    if (model.provider === 'venice') return queueVenice(model, params);
     throw new Error(`Unsupported privacy video provider: ${model.provider}`);
+  },
+
+  async generateI2V(params) {
+    const model = modelFor(params?.model);
+    if (!model) throw new Error(`Unknown privacy video model: ${params?.model}`);
+    if (model.provider !== 'venice') {
+      throw new Error('Direct BYOK image-to-video is currently enabled for Venice only.');
+    }
+    if (!params?.image_url) throw new Error('A start-frame image is required for Venice image-to-video.');
+    if (!params?.prompt?.trim()) throw new Error('A prompt is required for Venice image-to-video.');
+    return queueVenice(model, params);
   },
 
   async pollForResult(requestId, { maxAttempts = 180, interval = 5000 } = {}) {
