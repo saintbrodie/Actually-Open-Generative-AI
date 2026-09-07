@@ -1,12 +1,13 @@
 import { MuapiClient as UpstreamMuapiClient } from './upstreamMuapi.js';
 import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
+import { isPrivacyVideoJobId, isPrivacyVideoModelId, privacyVideoApi } from 'studio/src/privacyVideoApi.js';
 
 /**
  * Compatibility router for the standalone Vite/Electron shell.
  *
  * The upstream client remains available for features that have not yet been
- * ported to direct-provider APIs. Privacy-prefixed image models bypass it and
- * go directly to Venice or OpenRouter using the user's own provider key.
+ * ported to direct-provider APIs. Privacy-prefixed image/video models bypass it
+ * and go directly to Venice or OpenRouter using the user's own provider key.
  */
 export class MuapiClient extends UpstreamMuapiClient {
     getKey() {
@@ -14,7 +15,8 @@ export class MuapiClient extends UpstreamMuapiClient {
         if (key === PRIVACY_SENTINEL) {
             throw new Error(
                 'This feature is not yet available through the BYOK provider adapters. ' +
-                'Choose a Venice/OpenRouter image model, use local inference, or add a MuAPI key for compatibility features.'
+                'Choose a Venice/OpenRouter image or text-to-video model, use local inference, ' +
+                'or add a MuAPI key for compatibility features.'
             );
         }
         return key;
@@ -32,6 +34,20 @@ export class MuapiClient extends UpstreamMuapiClient {
             return privacyApi.generateI2I(params);
         }
         return super.generateI2I(params);
+    }
+
+    async generateVideo(params) {
+        if (isPrivacyVideoModelId(params?.model)) {
+            return privacyVideoApi.generateVideo(params);
+        }
+        return super.generateVideo(params);
+    }
+
+    async pollForResult(requestId, key, maxAttempts = 900, interval = 2000) {
+        if (isPrivacyVideoJobId(requestId)) {
+            return privacyVideoApi.pollForResult(requestId, { maxAttempts, interval });
+        }
+        return super.pollForResult(requestId, key, maxAttempts, interval);
     }
 
     async uploadFile(file) {
