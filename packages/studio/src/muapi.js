@@ -89,6 +89,9 @@ export const processV2V = compatibilityCall('processV2V');
 export const processRecast = compatibilityCall('processRecast');
 export const processLipSync = compatibilityCall('processLipSync');
 export const generateAudio = compatibilityCall('generateAudio');
+export const runClipping = compatibilityCall('runClipping');
+export const runMotionGraphics = compatibilityCall('runMotionGraphics');
+export const runMotionGraphicsEdit = compatibilityCall('runMotionGraphicsEdit');
 
 export const getTemplateWorkflows = compatibilityCall('getTemplateWorkflows');
 export const getUserWorkflows = compatibilityCall('getUserWorkflows');
@@ -100,6 +103,10 @@ export const getWorkflowInputs = compatibilityCall('getWorkflowInputs');
 export const executeWorkflow = compatibilityCall('executeWorkflow');
 export const getAllNodeSchemas = compatibilityCall('getAllNodeSchemas');
 export const getWorkflowData = compatibilityCall('getWorkflowData');
+export const getNodeSchemas = compatibilityCall('getNodeSchemas');
+export const runSingleNode = compatibilityCall('runSingleNode');
+export const deleteNodeRun = compatibilityCall('deleteNodeRun');
+export const getNodeStatus = compatibilityCall('getNodeStatus');
 
 export const getTemplateAgents = compatibilityCall('getTemplateAgents');
 export const getUserAgents = compatibilityCall('getUserAgents');
@@ -110,3 +117,9 @@ export const getAgentConversation = compatibilityCall('getAgentConversation');
 export const sendAgentChatMessage = compatibilityCall('sendAgentChatMessage');
 export const pollAgentChatResult = compatibilityCall('pollAgentChatResult');
 export const createAgent = compatibilityCall('createAgent');
+
+export const calculateDynamicCost = compatibilityCall('calculateDynamicCost');
+export const registerAppInterest = compatibilityCall('registerAppInterest');
+export const getAppInterests = compatibilityCall('getAppInterests');
+export const getHistory = compatibilityCall('getHistory');
+export const deleteMedia = compatibilityCall('deleteMedia');
