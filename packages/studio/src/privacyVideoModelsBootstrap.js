@@ -1,8 +1,11 @@
 import { i2vModels, t2vModels } from './models.js';
-import { getFallbackPrivacyVideoModels } from './privacyVideoApi.js';
+import {
+  getBootstrapPrivacyVideoModels,
+  refreshPrivacyVideoModelCache,
+} from './privacyVideoApi.js';
 
 function orderedPrivacyVideoModels(mode) {
-  const models = getFallbackPrivacyVideoModels(mode);
+  const models = getBootstrapPrivacyVideoModels(mode);
   if (typeof window === 'undefined') return models;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
@@ -103,3 +106,21 @@ function prependMissing(target, models, mapper) {
 
 prependMissing(t2vModels, orderedPrivacyVideoModels('t2v'), toT2VModel);
 prependMissing(i2vModels, orderedPrivacyVideoModels('i2v'), toI2VModel);
+
+// The upstream family/catalog maps are still created synchronously at module
+// load, so discovery refreshes a short-lived cache rather than mutating those
+// maps underneath mounted React components. Fresh provider metadata is picked
+// up on the next load; conservative fallback entries remain available now.
+if (typeof window !== 'undefined') {
+  const hasProviderKey = Boolean(
+    localStorage.getItem('venice_api_key')?.trim() ||
+    localStorage.getItem('openrouter_api_key')?.trim(),
+  );
+  if (hasProviderKey) {
+    window.setTimeout(() => {
+      refreshPrivacyVideoModelCache().catch((error) => {
+        console.warn('[Privacy Video Bootstrap] model refresh failed:', error.message);
+      });
+    }, 0);
+  }
+}
