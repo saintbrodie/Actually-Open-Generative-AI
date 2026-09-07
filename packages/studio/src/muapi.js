@@ -1,5 +1,5 @@
 import * as upstream from './upstreamMuapi.js';
-import { isPrivacyModelId, privacyApi } from './privacyApi.js';
+import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
 
 export * from './upstreamMuapi.js';
 
@@ -12,4 +12,9 @@ export async function generateImage(apiKey, params) {
     return privacyApi.generateImage(params);
   }
   return upstream.generateImage(apiKey, params);
+}
+
+export async function getUserBalance(apiKey) {
+  if (!apiKey || apiKey === PRIVACY_SENTINEL) return { balance: null };
+  return upstream.getUserBalance(apiKey);
 }
