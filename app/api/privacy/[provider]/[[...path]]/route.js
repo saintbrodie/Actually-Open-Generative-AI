@@ -3,7 +3,10 @@ const PROVIDER_TARGETS = {
   openrouter: 'https://openrouter.ai/api/v1',
 };
 
-const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
+// Three 10 MB source images can expand to roughly 40 MB once base64 encoded.
+// Keep a ceiling above that legitimate multi-edit case while still bounding
+// memory use for the hosted forwarding route.
+const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
 
 const ALLOWED_PATHS = {
   venice: [
