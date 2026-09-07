@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const { register: registerLocalInference } = require('./lib/localInference');
 const { register: registerWan2gp } = require('./lib/wan2gpProvider');
+const { register: registerProviderProxy } = require('./lib/providerProxy');
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
@@ -68,6 +69,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    // Provider transport stays in the main process so the file:// renderer can
+    // keep Chromium webSecurity/contextIsolation enabled and avoid CORS hacks.
+    registerProviderProxy();
     createWindow();
 
     try {
