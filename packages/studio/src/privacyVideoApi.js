@@ -1,6 +1,8 @@
 const VIDEO_PREFIX = 'privacy-video:';
 const JOB_PREFIX = 'privacy-video-job:';
 const JOB_STORAGE_PREFIX = 'actually_open_video_job:';
+const VIDEO_MODEL_CACHE_KEY = 'actually_open_video_models_v1';
+const VIDEO_MODEL_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PROVIDERS = {
   venice: {
@@ -169,12 +171,17 @@ function normalizeDuration(value, provider) {
   return provider === 'venice' ? `${numeric}s` : numeric;
 }
 
+function registerModel(model) {
+  if (model?.id) modelRegistry.set(model.id, model);
+  return model;
+}
+
 function modelFor(modelId) {
   const existing = modelRegistry.get(modelId);
   if (existing) return existing;
   const parsed = parseModelId(modelId);
   if (!parsed) return null;
-  const model = {
+  return registerModel({
     id: modelId,
     rawId: parsed.rawId,
     name: `${parsed.rawId} · ${configFor(parsed.provider).label}`,
@@ -182,9 +189,176 @@ function modelFor(modelId) {
     supportedDurations: [],
     supportedResolutions: [],
     supportedAspectRatios: [],
-  };
-  modelRegistry.set(modelId, model);
-  return model;
+  });
+}
+
+function valueFromModel(model, names) {
+  const spec = model?.model_spec || {};
+  const capabilities = spec.capabilities || model?.capabilities || {};
+  for (const source of [model || {}, spec, capabilities]) {
+    for (const name of names) {
+      if (source[name] !== undefined && source[name] !== null) return source[name];
+    }
+  }
+  return undefined;
+}
+
+function stringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+function durationArray(value) {
+  if (!Array.isArray(value)) return [];
+  const values = value
+    .map((item) => typeof item === 'number' ? item : Number.parseInt(String(item), 10))
+    .filter((item) => Number.isFinite(item) && item > 0);
+  return [...new Set(values)];
+}
+
+function inferVeniceMode(rawId) {
+  if (/image-to-video/i.test(rawId)) return 'i2v';
+  if (/text-to-video/i.test(rawId)) return 't2v';
+  return null;
+}
+
+export function normalizeVeniceVideoModel(model) {
+  const rawId = model?.id;
+  const mode = rawId ? inferVeniceMode(rawId) : null;
+  if (!rawId || !mode) return null;
+
+  const displayName = model?.model_spec?.name || model?.name || rawId;
+  const supportedDurations = durationArray(valueFromModel(model, [
+    'supported_durations',
+    'supportedDurations',
+    'durations',
+  ]));
+  const supportedResolutions = stringArray(valueFromModel(model, [
+    'supported_resolutions',
+    'supportedResolutions',
+    'resolutions',
+  ]));
+  const supportedAspectRatios = stringArray(valueFromModel(model, [
+    'supported_aspect_ratios',
+    'supportedAspectRatios',
+    'aspect_ratios',
+    'aspectRatios',
+  ]));
+  const supportsAudio = Boolean(valueFromModel(model, [
+    'supportsAudioConfig',
+    'supports_audio',
+    'supportsAudio',
+  ]));
+
+  return registerModel({
+    id: `${VIDEO_PREFIX}venice:${rawId}`,
+    rawId,
+    name: `${displayName} · Venice`,
+    provider: 'venice',
+    mode,
+    ...(mode === 'i2v' ? { imageField: 'image_url', maxImages: 1 } : {}),
+    supportedDurations,
+    supportedResolutions,
+    supportedAspectRatios,
+    supportsAudio,
+    modelSpec: model.model_spec || {},
+  });
+}
+
+export function normalizeOpenRouterVideoModel(model) {
+  const rawId = model?.id;
+  if (!rawId) return null;
+  const supportedFrameImages = stringArray(model.supported_frame_images);
+
+  return registerModel({
+    id: `${VIDEO_PREFIX}openrouter:${rawId}`,
+    rawId,
+    name: `${model.name || rawId} · OpenRouter`,
+    provider: 'openrouter',
+    mode: 't2v',
+    supportedDurations: durationArray(model.supported_durations),
+    supportedResolutions: stringArray(model.supported_resolutions),
+    supportedAspectRatios: stringArray(model.supported_aspect_ratios),
+    supportedFrameImages,
+    supportsAudio: Boolean(model.supports_audio ?? model.supportsAudio ?? model.supported_audio),
+    requiresPublicReferenceUrl: supportedFrameImages.length > 0,
+    pricing: model.pricing || null,
+    providerParameters: model.provider_parameters || model.providerParameters || null,
+  });
+}
+
+async function fetchDiscoveredPrivacyVideoModels() {
+  const found = [];
+  const store = storage();
+
+  if (store?.getItem('venice_api_key')?.trim()) {
+    try {
+      const response = await fetch(`${baseUrlFor('venice')}/models?type=video`, {
+        headers: headersFor('venice', keyFor('venice')),
+      });
+      if (!response.ok) throw await requestError(response, 'venice');
+      const body = await response.json();
+      for (const item of body.data || []) {
+        const model = normalizeVeniceVideoModel(item);
+        if (model) found.push(model);
+      }
+    } catch (error) {
+      console.warn('[Privacy Video API] Venice model discovery failed:', error.message);
+    }
+  }
+
+  if (store?.getItem('openrouter_api_key')?.trim()) {
+    try {
+      const response = await fetch(`${baseUrlFor('openrouter')}/videos/models`, {
+        headers: headersFor('openrouter', keyFor('openrouter')),
+      });
+      if (!response.ok) throw await requestError(response, 'openrouter');
+      const body = await response.json();
+      for (const item of body.data || []) {
+        const model = normalizeOpenRouterVideoModel(item);
+        if (model) found.push(model);
+      }
+    } catch (error) {
+      console.warn('[Privacy Video API] OpenRouter model discovery failed:', error.message);
+    }
+  }
+
+  return found;
+}
+
+function filterMode(models, mode) {
+  if (mode === 'all') return models;
+  return models.filter((model) => model.mode === mode);
+}
+
+function dedupeModels(models) {
+  const seen = new Set();
+  return models.filter((model) => {
+    if (!model?.id || seen.has(model.id)) return false;
+    seen.add(model.id);
+    registerModel(model);
+    return true;
+  });
+}
+
+function readVideoModelCache() {
+  try {
+    const cached = JSON.parse(storage()?.getItem(VIDEO_MODEL_CACHE_KEY) || 'null');
+    if (!cached || !Array.isArray(cached.models) || !Number.isFinite(cached.updatedAt)) return [];
+    if (Date.now() - cached.updatedAt > VIDEO_MODEL_CACHE_MAX_AGE_MS) return [];
+    return dedupeModels(cached.models);
+  } catch {
+    return [];
+  }
+}
+
+function writeVideoModelCache(models) {
+  try {
+    storage()?.setItem(VIDEO_MODEL_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      models,
+    }));
+  } catch {}
 }
 
 export function isPrivacyVideoModelId(modelId) {
@@ -198,6 +372,25 @@ export function isPrivacyVideoJobId(value) {
 export function getFallbackPrivacyVideoModels(mode = 't2v') {
   const source = mode === 'i2v' ? FALLBACK_I2V_MODELS : FALLBACK_T2V_MODELS;
   return source.map((model) => ({ ...model }));
+}
+
+export function getBootstrapPrivacyVideoModels(mode = 't2v') {
+  return dedupeModels([
+    ...filterMode(readVideoModelCache(), mode),
+    ...getFallbackPrivacyVideoModels(mode),
+  ]).map((model) => ({ ...model }));
+}
+
+export async function discoverPrivacyVideoModels(mode = 't2v') {
+  const found = filterMode(await fetchDiscoveredPrivacyVideoModels(), mode);
+  return (found.length ? dedupeModels(found) : getFallbackPrivacyVideoModels(mode))
+    .map((model) => ({ ...model }));
+}
+
+export async function refreshPrivacyVideoModelCache() {
+  const found = dedupeModels(await fetchDiscoveredPrivacyVideoModels());
+  if (found.length) writeVideoModelCache(found);
+  return found.map((model) => ({ ...model }));
 }
 
 function addVideoControls(payload, model, params) {
