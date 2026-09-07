@@ -1,8 +1,11 @@
 import { i2iModels, t2iModels } from './models.js';
-import { getFallbackPrivacyModels } from './privacyApi.js';
+import {
+  getBootstrapPrivacyModels,
+  refreshPrivacyModelCache,
+} from './privacyApi.js';
 
 function orderedPrivacyModels(mode) {
-  const models = getFallbackPrivacyModels(mode);
+  const models = getBootstrapPrivacyModels(mode);
   if (typeof window === 'undefined') return models;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
@@ -71,3 +74,20 @@ function prependMissing(target, models, mapper) {
 
 prependMissing(t2iModels, orderedPrivacyModels('t2i'), toT2IModel);
 prependMissing(i2iModels, orderedPrivacyModels('i2i'), toI2IModel);
+
+// The image family/catalog maps are still created synchronously at module load.
+// Refresh provider metadata into a short-lived cache and consume it on the next
+// load rather than mutating mounted catalog maps underneath React components.
+if (typeof window !== 'undefined') {
+  const hasProviderKey = Boolean(
+    localStorage.getItem('venice_api_key')?.trim() ||
+    localStorage.getItem('openrouter_api_key')?.trim(),
+  );
+  if (hasProviderKey) {
+    window.setTimeout(() => {
+      refreshPrivacyModelCache().catch((error) => {
+        console.warn('[Privacy Image Bootstrap] model refresh failed:', error.message);
+      });
+    }, 0);
+  }
+}
