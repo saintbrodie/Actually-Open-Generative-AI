@@ -268,3 +268,98 @@ test('Venice I2V keeps the local data URL in the queue payload and uses queue-ti
         assert.equal(result.url, 'https://download.example/video.mp4');
     });
 });
+
+test('video discovery normalizes current OpenRouter and Venice capability metadata', async () => {
+    const {
+        normalizeOpenRouterVideoModel,
+        normalizeVeniceVideoModel,
+    } = await importSource('packages/studio/src/privacyVideoApi.js');
+
+    const openrouter = normalizeOpenRouterVideoModel({
+        id: 'google/veo-3.1-lite',
+        name: 'Veo 3.1 Lite',
+        supported_durations: [8, 4, 6],
+        supported_resolutions: ['720p', '1080p'],
+        supported_aspect_ratios: ['16:9', '9:16'],
+        supported_frame_images: ['first_frame', 'last_frame'],
+        pricing: { video: '0.1' },
+    });
+    assert.equal(openrouter.id, 'privacy-video:openrouter:google/veo-3.1-lite');
+    assert.deepEqual(openrouter.supportedDurations, [8, 4, 6]);
+    assert.deepEqual(openrouter.supportedFrameImages, ['first_frame', 'last_frame']);
+    assert.equal(openrouter.requiresPublicReferenceUrl, true);
+
+    const venice = normalizeVeniceVideoModel({
+        id: 'seedance-2-5-image-to-video-basic',
+        model_spec: {
+            name: 'Seedance 2.5',
+            capabilities: {
+                supportedDurations: ['4s', '10s', '30s'],
+                supportedResolutions: ['480p', '720p', '1080p'],
+                supportedAspectRatios: ['16:9', '9:16'],
+                supportsAudioConfig: true,
+            },
+        },
+    });
+    assert.equal(venice.mode, 'i2v');
+    assert.equal(venice.imageField, 'image_url');
+    assert.deepEqual(venice.supportedDurations, [4, 10, 30]);
+    assert.deepEqual(venice.supportedResolutions, ['480p', '720p', '1080p']);
+    assert.equal(venice.supportsAudio, true);
+});
+
+test('video discovery refresh caches provider catalogs and bootstrap keeps conservative fallbacks', async () => {
+    await withBrowserGlobals(
+        { venice_api_key: 'venice-video-key', openrouter_api_key: 'or-video-key' },
+        async (storage) => {
+            const calls = [];
+            global.fetch = async (url) => {
+                calls.push(String(url));
+                if (String(url).includes('api.venice.ai')) {
+                    return jsonResponse({
+                        data: [
+                            {
+                                id: 'wan-2.7-enhanced-text-to-video',
+                                model_spec: {
+                                    name: 'Wan 2.7 Enhanced',
+                                    capabilities: {
+                                        supportedDurations: ['5s', '10s'],
+                                        supportedResolutions: ['720p'],
+                                        supportedAspectRatios: ['16:9'],
+                                    },
+                                },
+                            },
+                        ],
+                    });
+                }
+                return jsonResponse({
+                    data: [
+                        {
+                            id: 'google/veo-3.1-lite',
+                            supported_durations: [4, 6, 8],
+                            supported_resolutions: ['720p', '1080p'],
+                            supported_aspect_ratios: ['16:9', '9:16'],
+                            supported_frame_images: ['first_frame'],
+                        },
+                    ],
+                });
+            };
+
+            const {
+                refreshPrivacyVideoModelCache,
+                getBootstrapPrivacyVideoModels,
+            } = await importSource('packages/studio/src/privacyVideoApi.js');
+            const refreshed = await refreshPrivacyVideoModelCache();
+
+            assert.equal(calls.length, 2);
+            assert.ok(refreshed.some((model) => model.id === 'privacy-video:venice:wan-2.7-enhanced-text-to-video'));
+            assert.ok(refreshed.some((model) => model.id === 'privacy-video:openrouter:google/veo-3.1-lite'));
+            assert.ok(storage.getItem('actually_open_video_models_v1'));
+
+            const bootstrap = getBootstrapPrivacyVideoModels('t2v');
+            assert.ok(bootstrap.some((model) => model.id === 'privacy-video:openrouter:google/veo-3.1-lite'));
+            assert.ok(bootstrap.some((model) => model.id === 'privacy-video:openrouter:bytedance/seedance-2.0-fast'));
+            assert.ok(bootstrap.some((model) => model.id === 'privacy-video:venice:seedance-2-0-fast-text-to-video'));
+        },
+    );
+});
