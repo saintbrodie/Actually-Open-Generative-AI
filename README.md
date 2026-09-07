@@ -6,7 +6,8 @@ This branch is synced to upstream as of **September 6, 2026**.
 
 ## What makes this fork different
 
-- **Direct-provider image generation** with your own **Venice** or **OpenRouter** key.
+- **Direct-provider image generation and editing** with your own **Venice** or **OpenRouter** key.
+- **Direct-provider text-to-video** with normalized async queue/poll handling for Venice and OpenRouter.
 - **Local inference** remains available in the desktop/Electron build.
 - **Upstream stays intact behind a compatibility layer** instead of deleting large parts of the application and breaking studios that depend on them.
 - **No third-party promo banner** in the fork UI.
@@ -20,49 +21,67 @@ The long-term goal is a fully provider-agnostic application. It is not there yet
 | Capability | Venice BYOK | OpenRouter BYOK | Local desktop | Upstream compatibility |
 |---|---:|---:|---:|---:|
 | Text-to-image | ✅ | ✅ | ✅ | ✅ |
+| Image-to-image / reference editing | ✅ | ✅ | model-dependent | ✅ |
 | Runtime image-model discovery API | ✅ adapter | ✅ adapter | n/a | n/a |
-| Image-to-image / reference editing | 🚧 | 🚧 | model-dependent | ✅ |
-| Text/image-to-video | 🚧 | 🚧 | ✅ Wan2GP models | ✅ |
+| Text-to-video | ✅ | ✅ | ✅ Wan2GP models | ✅ |
+| Image/reference-to-video | 🚧 | 🚧 | ✅ supported Wan2GP models | ✅ |
+| Video-to-video / specialized video tools | 🚧 | 🚧 | model-dependent | ✅ |
 | Lip sync / audio / clipping | 🚧 | 🚧 | model-dependent | ✅ |
-| Layers / Recast / specialized tools | 🚧 | 🚧 | model-dependent | ✅ |
+| Layers / Recast / specialized image tools | 🚧 | 🚧 | model-dependent | ✅ |
 | Agents / workflow integrations | 🚧 | 🚧 | n/a | ✅ |
 
-The UI currently exposes tested BYOK defaults for cloud T2I while the provider discovery layer is being integrated more deeply into the React model-family picker.
+The UI currently injects known-good BYOK image and text-to-video defaults into upstream's existing family pickers. Provider discovery helpers are implemented, but the React picker is not yet rebuilt reactively from live discovery results.
+
+### Current direct-provider defaults
+
+**Venice**
+- T2I: `nano-banana-pro`
+- I2I: `nano-banana-pro-edit` (single image)
+- Multi-image edit: up to 3 input images
+- T2V: `seedance-2-0-fast-text-to-video`
+
+**OpenRouter**
+- T2I: `bytedance-seed/seedream-4.5`
+- I2I/reference: `bytedance-seed/seedream-4.5`, up to 14 references where supported
+- T2V: `bytedance/seedance-2.0-fast`
+
+These are conservative bootstrap entries, not a hardcoded statement that only those models can ever work. Live capability discovery is the intended source of truth as the picker integration matures.
 
 ### Why keep the compatibility layer?
 
 Earlier versions of this fork replaced the upstream API module with a small partial client. That made the image path simpler, but newer upstream releases expect a much larger API surface: uploads, polling, image editing, video generation, V2V, lip sync, Layers, Recast, and other workflows.
 
-The current architecture keeps the mature upstream implementation in `upstreamMuapi.js` and routes only supported BYOK models through the direct provider adapter. This avoids a UI that looks functional while failing at runtime.
+The current architecture keeps the mature upstream implementation in `upstreamMuapi.js` and routes only supported BYOK models through direct-provider adapters. This avoids a UI that looks functional while failing at runtime.
 
 ## Architecture
 
 ```text
 Hosted Next.js app / React Studio
         │
-        ├── BYOK image model ──> /api/privacy/{provider} ──> Venice / OpenRouter
-        │                          allow-listed proxy
+        ├── BYOK image/video model ──> /api/privacy/{provider} ──> Venice / OpenRouter
+        │                                allow-listed streaming proxy
         │
-        └── unported workflow ──> upstream compatibility client
+        └── unported workflow ────────> upstream compatibility client
 
 Electron / Vite app
         │
-        ├── BYOK image model ──> Venice / OpenRouter
-        ├── local model ───────> sd.cpp / Wan2GP
-        └── unported workflow ─> upstream compatibility client
+        ├── BYOK image/video model ──> Venice / OpenRouter
+        ├── local model ─────────────> sd.cpp / Wan2GP
+        └── unported workflow ───────> upstream compatibility client
 ```
 
 Important files:
 
 ```text
-packages/studio/src/privacyApi.js   Shared Venice/OpenRouter BYOK adapter
-packages/studio/src/models.js       Fork model-catalog compatibility wrapper
-packages/studio/src/upstreamModels.js
-packages/studio/src/muapi.js        Provider router
-packages/studio/src/upstreamMuapi.js
-app/api/privacy/.../route.js        Hosted allow-listed provider proxy
-src/lib/muapi.js                    Vite/Electron compatibility router
-src/lib/upstreamMuapi.js
+packages/studio/src/privacyApi.js                 Shared Venice/OpenRouter image adapter
+packages/studio/src/privacyModelsBootstrap.js     BYOK image catalog injection
+packages/studio/src/privacyVideoApi.js            Shared Venice/OpenRouter async video adapter
+packages/studio/src/privacyVideoModelsBootstrap.js BYOK video catalog injection
+packages/studio/src/muapi.js                      React provider/compatibility router
+packages/studio/src/upstreamMuapi.js              Preserved upstream API client
+app/api/privacy/.../route.js                      Hosted allow-listed streaming provider proxy
+src/lib/muapi.js                                  Vite/Electron provider/compatibility router
+src/lib/upstreamMuapi.js                          Preserved upstream Vite client
 ```
 
 ## Privacy notes
@@ -70,7 +89,9 @@ src/lib/upstreamMuapi.js
 - Provider keys are stored in the browser profile's `localStorage` today. That is convenient, but it is **not equivalent to OS-keychain storage** and any successful same-origin XSS could read them.
 - In the hosted Next.js app, provider calls pass through this app's own allow-listed `/api/privacy/...` proxy to avoid CORS problems. The application code does not persist or intentionally log the Authorization header, but operators should also configure reverse proxies and infrastructure logs not to record request headers.
 - In Electron's `file://` renderer, provider calls can go directly to the provider.
-- Venice/OpenRouter privacy, retention, moderation, and billing policies still apply to requests sent to those services.
+- BYOK-only image reference uploads are converted to browser data URLs rather than being uploaded to the compatibility backend first.
+- **BYOK does not mean zero retention.** Provider privacy, retention, moderation, and billing policies still apply. In particular, OpenRouter's asynchronous video API is not eligible for Zero Data Retention because generated video must be retained briefly for polling and download.
+- Venice currently labels the bootstrap Seedance video model as **Anonymized**, not Private. Direct-to-provider routing removes the fork's compatibility middleman; it does not change the provider's own privacy classification.
 - A MuAPI key is optional and is used only for features that have not yet been ported to direct-provider adapters.
 
 ## Quick start
@@ -84,7 +105,7 @@ npm run setup
 npm run dev
 ```
 
-Open the app, add a Venice and/or OpenRouter key, then choose a BYOK model in Image Studio.
+Open the app, add a Venice and/or OpenRouter key, then choose a BYOK entry in Image Studio or Video Studio.
 
 ### Vite development shell
 
@@ -102,22 +123,47 @@ Linux, Windows, and macOS packaging scripts are inherited from upstream; see `pa
 
 ## Provider APIs
 
-The BYOK adapter intentionally follows the providers' current media APIs instead of treating image generation as chat:
+The BYOK adapters intentionally follow the providers' current media APIs rather than treating media generation as chat.
 
-- **OpenRouter:** `POST /api/v1/images` with model capabilities from `GET /api/v1/images/models`.
-- **Venice:** `POST /api/v1/image/generate` with image models from `GET /api/v1/models?type=image`.
+### Images
+
+- **OpenRouter:** `POST /api/v1/images`, with model capabilities from `GET /api/v1/images/models`; reference editing uses `input_references`.
+- **Venice:** `POST /api/v1/image/generate`, `POST /api/v1/image/edit`, and `POST /api/v1/image/multi-edit`, with image models from `GET /api/v1/models?type=image`.
 
 Image sizing is capability-aware where the provider exposes structured metadata. Unknown Venice model families default conservatively rather than sending incompatible width/height/aspect-ratio fields.
 
+### Video
+
+- **OpenRouter:** `POST /api/v1/videos`, then poll `GET /api/v1/videos/{jobId}` until completion and consume `unsigned_urls` or the authenticated `/content` endpoint.
+- **Venice:** `POST /api/v1/video/queue`, then poll `POST /api/v1/video/retrieve`; completion can return either raw `video/mp4` or JSON plus the pre-signed `download_url` returned at queue time.
+
+The standalone Vite shell wraps provider job IDs in a small synthetic ID so its existing pending-generation resume mechanism can resume direct-provider jobs after a reload.
+
+## Validation
+
+GitHub Actions runs on every pull request and on pushes to `main`:
+
+```text
+npm ci
+node --test tests/*.test.js
+npm run build:packages
+npm run build
+npm run vite:build
+```
+
+This catches workspace, Next.js, and Vite integration regressions. Provider adapters still need mocked contract tests and manual live-key smoke tests because a build cannot validate billing/auth/provider behavior.
+
 ## Roadmap
 
-1. Wire live provider discovery into the React model-family picker with reactive refresh.
-2. Add OpenRouter `input_references` image editing and Venice image-edit adapters.
-3. Add OpenRouter/Venice video adapters with normalized async job lifecycle handling.
-4. Replace the compatibility-key sentinel with first-class per-studio capability/auth state.
-5. Move desktop secrets to OS-backed secure storage and offer session-only browser keys.
-6. Add adapter unit tests with mocked provider responses plus CI smoke builds for Next/Vite.
-7. Continue reducing compatibility-backend usage feature by feature instead of removing it all at once.
+1. Wire live provider discovery into the React image/video family pickers with reactive refresh.
+2. Add direct Venice image-to-video, which can consume the same local data-URL reference path used by BYOK image editing.
+3. Design a privacy-preserving hosted-reference strategy before enabling OpenRouter I2V/reference video paths that require stable externally reachable media URLs.
+4. Expand direct video coverage from T2V to I2V/V2V and provider-specific multimodal controls through capability metadata rather than studio-specific conditionals.
+5. Replace the compatibility-key sentinel with first-class per-studio capability/auth state.
+6. Move desktop secrets to OS-backed secure storage and offer session-only browser keys.
+7. Add adapter contract tests with mocked provider responses and payload assertions.
+8. Make mixed compatibility+BYOK sessions use model-aware upload routing so selecting a BYOK model always keeps compatible references local.
+9. Continue reducing compatibility-backend usage feature by feature instead of removing it all at once.
 
 ## Upstream
 
