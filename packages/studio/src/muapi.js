@@ -62,11 +62,14 @@ export async function generateI2V(apiKey, params) {
 }
 
 export function uploadFile(apiKey, file, onProgress) {
-  // In a BYOK-only session, keep image references in the browser as data URLs.
-  // This prevents the source image from being uploaded to the compatibility
-  // backend merely to obtain a temporary public URL.
+  // BYOK-only image references stay in the browser as data URLs. Non-image
+  // uploads belong to compatibility-only tools today, so fail with the same
+  // explicit compatibility-key message instead of an image-format error.
   if (apiKey === PRIVACY_SENTINEL) {
-    return privacyApi.fileToDataUrl(file, onProgress);
+    if (file?.type?.startsWith('image/')) {
+      return privacyApi.fileToDataUrl(file, onProgress);
+    }
+    requireCompatibilityKey(apiKey);
   }
   requireCompatibilityKey(apiKey);
   return upstream.uploadFile(apiKey, file, onProgress);
