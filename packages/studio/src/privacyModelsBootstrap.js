@@ -1,8 +1,8 @@
-import { t2iModels } from './models.js';
+import { i2iModels, t2iModels } from './models.js';
 import { getFallbackPrivacyModels } from './privacyApi.js';
 
-function orderedPrivacyModels() {
-  const models = getFallbackPrivacyModels();
+function orderedPrivacyModels(mode) {
+  const models = getFallbackPrivacyModels(mode);
   if (typeof window === 'undefined') return models;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
@@ -13,7 +13,7 @@ function orderedPrivacyModels() {
   return models;
 }
 
-function toStudioModel(model) {
+function commonModelFields(model) {
   const aspectRatios = model.supportedParameters?.aspect_ratio?.values;
   const resolutions = model.supportedParameters?.resolution?.values;
 
@@ -23,6 +23,11 @@ function toStudioModel(model) {
     provider: model.provider,
     provider_name: model.provider === 'openrouter' ? 'OpenRouter' : 'Venice',
     inputs: {
+      prompt: {
+        type: 'string',
+        title: 'Prompt',
+        name: 'prompt',
+      },
       aspect_ratio: {
         type: 'string',
         default: Array.isArray(aspectRatios) && aspectRatios.length ? aspectRatios[0] : '1:1',
@@ -41,9 +46,28 @@ function toStudioModel(model) {
   };
 }
 
-const existing = new Set(t2iModels.map((model) => model.id));
-const additions = orderedPrivacyModels()
-  .filter((model) => !existing.has(model.id))
-  .map(toStudioModel);
+function toT2IModel(model) {
+  return commonModelFields(model);
+}
 
-t2iModels.unshift(...additions);
+function toI2IModel(model) {
+  return {
+    ...commonModelFields(model),
+    imageField: 'images_list',
+    hasPrompt: true,
+    promptRequired: true,
+    maxImages: model.maxImages || model.supportedParameters?.input_references?.max || 1,
+    required: ['images_list', 'prompt'],
+  };
+}
+
+function prependMissing(target, models, mapper) {
+  const existing = new Set(target.map((model) => model.id));
+  const additions = models
+    .filter((model) => !existing.has(model.id))
+    .map(mapper);
+  target.unshift(...additions);
+}
+
+prependMissing(t2iModels, orderedPrivacyModels('t2i'), toT2IModel);
+prependMissing(i2iModels, orderedPrivacyModels('i2i'), toI2IModel);
