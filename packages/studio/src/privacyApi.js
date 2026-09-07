@@ -14,15 +14,24 @@ const PROVIDERS = {
   },
 };
 
-const FALLBACK_MODELS = [
+const OPENROUTER_ASPECT_RATIOS = [
+  '1:1', '1:2', '2:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4',
+  '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9', 'auto',
+];
+const VENICE_GENERATE_ASPECT_RATIOS = ['1:1', '3:2', '16:9', '21:9', '9:16', '2:3', '3:4', '4:5'];
+const VENICE_EDIT_ASPECT_RATIOS = ['auto', '1:1', '3:2', '16:9', '21:9', '9:16', '2:3', '4:5'];
+const COMMON_RESOLUTIONS = ['1K', '2K', '4K'];
+
+const FALLBACK_T2I_MODELS = [
   {
     id: 'privacy:venice:nano-banana-pro',
     rawId: 'nano-banana-pro',
     name: 'Nano Banana Pro · Venice',
     provider: 'venice',
+    mode: 't2i',
     supportedParameters: {
-      aspect_ratio: { type: 'enum', values: ['1:1', '3:2', '16:9', '21:9', '9:16', '2:3', '3:4', '4:5'] },
-      resolution: { type: 'enum', values: ['1K', '2K', '4K'] },
+      aspect_ratio: { type: 'enum', values: VENICE_GENERATE_ASPECT_RATIOS },
+      resolution: { type: 'enum', values: COMMON_RESOLUTIONS },
       seed: { type: 'boolean' },
     },
   },
@@ -31,14 +40,50 @@ const FALLBACK_MODELS = [
     rawId: 'bytedance-seed/seedream-4.5',
     name: 'Seedream 4.5 · OpenRouter',
     provider: 'openrouter',
+    mode: 't2i',
     supportedParameters: {
-      aspect_ratio: { type: 'enum', values: ['1:1', '1:2', '2:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9', 'auto'] },
-      resolution: { type: 'enum', values: ['1K', '2K', '4K'] },
+      aspect_ratio: { type: 'enum', values: OPENROUTER_ASPECT_RATIOS },
+      resolution: { type: 'enum', values: COMMON_RESOLUTIONS },
+      input_references: { type: 'range', min: 0, max: 14 },
       seed: { type: 'boolean' },
     },
   },
 ];
 
+const FALLBACK_I2I_MODELS = [
+  {
+    id: 'privacy:venice:nano-banana-pro-edit',
+    rawId: 'nano-banana-pro-edit',
+    name: 'Nano Banana Pro Edit · Venice',
+    provider: 'venice',
+    mode: 'i2i',
+    maxImages: 3,
+    supportedParameters: {
+      aspect_ratio: { type: 'enum', values: VENICE_EDIT_ASPECT_RATIOS },
+      resolution: { type: 'enum', values: COMMON_RESOLUTIONS },
+      input_references: { type: 'range', min: 1, max: 3 },
+    },
+  },
+  {
+    // OpenRouter uses the same Seedream model id for text-to-image and
+    // reference-image generation. The synthetic -edit suffix exists only so
+    // the studio can expose a distinct I2I variant in its family picker.
+    id: 'privacy:openrouter:bytedance-seed/seedream-4.5-edit',
+    rawId: 'bytedance-seed/seedream-4.5',
+    name: 'Seedream 4.5 Edit · OpenRouter',
+    provider: 'openrouter',
+    mode: 'i2i',
+    maxImages: 14,
+    supportedParameters: {
+      aspect_ratio: { type: 'enum', values: OPENROUTER_ASPECT_RATIOS },
+      resolution: { type: 'enum', values: COMMON_RESOLUTIONS },
+      input_references: { type: 'range', min: 1, max: 14 },
+      seed: { type: 'boolean' },
+    },
+  },
+];
+
+const FALLBACK_MODELS = [...FALLBACK_T2I_MODELS, ...FALLBACK_I2I_MODELS];
 const modelRegistry = new Map(FALLBACK_MODELS.map((model) => [model.id, model]));
 
 function storage() {
@@ -120,8 +165,9 @@ export function getPrivacyModel(modelId) {
   });
 }
 
-export function getFallbackPrivacyModels() {
-  return FALLBACK_MODELS.map((model) => ({ ...model }));
+export function getFallbackPrivacyModels(mode = 't2i') {
+  const source = mode === 'i2i' ? FALLBACK_I2I_MODELS : FALLBACK_T2I_MODELS;
+  return source.map((model) => ({ ...model }));
 }
 
 export function hasPrivacyKey() {
@@ -146,6 +192,7 @@ function normalizeOpenRouterModel(model) {
     rawId: model.id,
     name: `${model.name || model.id} · OpenRouter`,
     provider: 'openrouter',
+    mode: 't2i',
     supportedParameters: model.supported_parameters || {},
   });
 }
@@ -156,6 +203,7 @@ function normalizeVeniceModel(model) {
     rawId: model.id,
     name: `${model.model_spec?.name || model.id} · Venice`,
     provider: 'venice',
+    mode: 't2i',
     supportedParameters: {},
     modelSpec: model.model_spec || {},
   });
@@ -191,7 +239,7 @@ export async function discoverPrivacyModels() {
     }
   }
 
-  return found.length ? found : getFallbackPrivacyModels();
+  return found.length ? found : getFallbackPrivacyModels('t2i');
 }
 
 function supports(model, parameter) {
@@ -202,6 +250,11 @@ function validEnum(model, parameter, value) {
   const values = model?.supportedParameters?.[parameter]?.values;
   if (!Array.isArray(values) || !values.length) return value;
   return values.includes(value) ? value : values[0];
+}
+
+function inputReferenceLimit(model) {
+  const max = model?.supportedParameters?.input_references?.max;
+  return Number.isInteger(max) && max > 0 ? max : (model?.maxImages || 1);
 }
 
 function openRouterImageUrl(data) {
@@ -218,6 +271,46 @@ function veniceImageUrl(data) {
   return `data:image/webp;base64,${image}`;
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Failed to read image response.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export function fileToDataUrl(file, onProgress) {
+  if (!file?.type?.startsWith('image/')) {
+    return Promise.reject(new Error('BYOK reference uploads currently support images only.'));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    reader.onload = () => {
+      onProgress?.(100);
+      resolve(reader.result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Failed to read local image.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function referenceUrls(params) {
+  const urls = Array.isArray(params?.images_list) && params.images_list.length
+    ? params.images_list
+    : (params?.image_url ? [params.image_url] : []);
+  return urls.filter((value) => typeof value === 'string' && value.length > 0);
+}
+
+function stripDataUrl(value) {
+  if (!value?.startsWith('data:')) return value;
+  const comma = value.indexOf(',');
+  return comma >= 0 ? value.slice(comma + 1) : value;
+}
+
 function addVeniceSizing(payload, rawId, params) {
   const resolution = params.resolution || params.quality;
   if (rawId === 'venice-sd35' || rawId === 'qwen-image') {
@@ -229,18 +322,29 @@ function addVeniceSizing(payload, rawId, params) {
   }
   if (/^(gpt-image-2|nano-banana-(2|pro))/.test(rawId)) {
     if (params.aspect_ratio) payload.aspect_ratio = params.aspect_ratio;
-    payload.resolution = ['1K', '2K', '4K'].includes(resolution) ? resolution : '1K';
+    payload.resolution = COMMON_RESOLUTIONS.includes(resolution) ? resolution : '1K';
     return;
   }
   if (rawId === 'qwen-image-2' && params.aspect_ratio) payload.aspect_ratio = params.aspect_ratio;
 }
 
-async function generateOpenRouter(model, params) {
-  const payload = { model: model.rawId, prompt: params.prompt };
+function addOpenRouterControls(payload, model, params) {
   if (supports(model, 'aspect_ratio') && params.aspect_ratio) payload.aspect_ratio = validEnum(model, 'aspect_ratio', params.aspect_ratio);
   if (supports(model, 'resolution') && params.resolution) payload.resolution = validEnum(model, 'resolution', params.resolution);
   if (supports(model, 'quality') && params.quality) payload.quality = validEnum(model, 'quality', params.quality);
   if (supports(model, 'seed') && Number.isInteger(params.seed) && params.seed !== -1) payload.seed = params.seed;
+}
+
+async function generateOpenRouter(model, params, references = []) {
+  const payload = { model: model.rawId, prompt: params.prompt };
+  addOpenRouterControls(payload, model, params);
+  if (references.length) {
+    const limited = references.slice(0, inputReferenceLimit(model));
+    payload.input_references = limited.map((url) => ({
+      type: 'image_url',
+      image_url: { url },
+    }));
+  }
 
   const response = await fetch(`${baseUrlFor('openrouter')}/images`, {
     method: 'POST',
@@ -272,6 +376,44 @@ async function generateVenice(model, params) {
   return { ...data, url, id: data.id || String(Date.now()) };
 }
 
+async function editOpenRouter(model, params) {
+  const references = referenceUrls(params);
+  if (!references.length) throw new Error('OpenRouter image editing requires at least one reference image.');
+  return generateOpenRouter(model, params, references);
+}
+
+async function editVenice(model, params) {
+  const references = referenceUrls(params).slice(0, model.maxImages || 3);
+  if (!references.length) throw new Error('Venice image editing requires at least one reference image.');
+  if (!params.prompt?.trim()) throw new Error('Venice image editing requires a prompt.');
+
+  const isMulti = references.length > 1;
+  const payload = isMulti
+    ? {
+        modelId: model.rawId,
+        prompt: params.prompt,
+        images: references.map(stripDataUrl),
+        output_format: 'png',
+      }
+    : {
+        model: model.rawId,
+        prompt: params.prompt,
+        image: stripDataUrl(references[0]),
+      };
+
+  if (params.aspect_ratio) payload.aspect_ratio = validEnum(model, 'aspect_ratio', params.aspect_ratio);
+  if (isMulti && params.resolution && COMMON_RESOLUTIONS.includes(params.resolution)) payload.resolution = params.resolution;
+
+  const response = await fetch(`${baseUrlFor('venice')}${isMulti ? '/image/multi-edit' : '/image/edit'}`, {
+    method: 'POST',
+    headers: headersFor('venice', keyFor('venice')),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw await requestError(response, 'venice');
+  const url = await blobToDataUrl(await response.blob());
+  return { url, id: String(Date.now()), provider: 'venice' };
+}
+
 export const privacyApi = {
   async generateImage(params) {
     const model = getPrivacyModel(params?.model);
@@ -280,6 +422,16 @@ export const privacyApi = {
     if (model.provider === 'venice') return generateVenice(model, params);
     throw new Error(`Unsupported privacy provider: ${model.provider}`);
   },
+
+  async generateI2I(params) {
+    const model = getPrivacyModel(params?.model);
+    if (!model) throw new Error(`Unknown privacy model: ${params?.model}`);
+    if (model.provider === 'openrouter') return editOpenRouter(model, params);
+    if (model.provider === 'venice') return editVenice(model, params);
+    throw new Error(`Unsupported privacy provider: ${model.provider}`);
+  },
+
+  fileToDataUrl,
 };
 
 syncPrivacyCompatibilitySentinel();
