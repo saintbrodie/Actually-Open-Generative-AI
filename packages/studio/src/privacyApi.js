@@ -1,5 +1,7 @@
 export const PRIVACY_SENTINEL = '__actually_open_byok__';
 const PRIVACY_PREFIX = 'privacy:';
+const IMAGE_MODEL_CACHE_KEY = 'actually_open_image_models_v1';
+const IMAGE_MODEL_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PROVIDERS = {
   venice: {
@@ -147,6 +149,21 @@ function register(model) {
   return model;
 }
 
+function dedupeModels(models) {
+  const seen = new Set();
+  return models.filter((model) => {
+    if (!model?.id || seen.has(model.id)) return false;
+    seen.add(model.id);
+    register(model);
+    return true;
+  });
+}
+
+function filterMode(models, mode) {
+  if (mode === 'all') return models;
+  return models.filter((model) => model.mode === mode);
+}
+
 export function isPrivacyModelId(modelId) {
   return Boolean(parsePrivacyModelId(modelId));
 }
@@ -186,7 +203,8 @@ export function syncPrivacyCompatibilitySentinel() {
   }
 }
 
-function normalizeOpenRouterModel(model) {
+export function normalizeOpenRouterImageModel(model) {
+  if (!model?.id) return null;
   return register({
     id: `privacy:openrouter:${model.id}`,
     rawId: model.id,
@@ -197,11 +215,35 @@ function normalizeOpenRouterModel(model) {
   });
 }
 
-function normalizeVeniceModel(model) {
+export function normalizeOpenRouterEditModel(model) {
+  const base = normalizeOpenRouterImageModel(model);
+  const inputReferences = base?.supportedParameters?.input_references;
+  if (!base || !inputReferences) return null;
+  const declaredMax = Number.parseInt(String(inputReferences.max ?? ''), 10);
+  const maxImages = Number.isFinite(declaredMax) && declaredMax > 0 ? declaredMax : 1;
+  return register({
+    ...base,
+    id: `${PRIVACY_PREFIX}openrouter:${model.id}-edit`,
+    name: `${model.name || model.id} Edit · OpenRouter`,
+    mode: 'i2i',
+    maxImages,
+    supportedParameters: {
+      ...base.supportedParameters,
+      input_references: {
+        ...inputReferences,
+        min: Math.max(1, Number.parseInt(String(inputReferences.min ?? 1), 10) || 1),
+        max: maxImages,
+      },
+    },
+  });
+}
+
+export function normalizeVeniceImageModel(model) {
+  if (!model?.id || /(?:^|[-_])edit(?:[-_]|$)/i.test(model.id)) return null;
   return register({
     id: `privacy:venice:${model.id}`,
     rawId: model.id,
-    name: `${model.model_spec?.name || model.id} · Venice`,
+    name: `${model.model_spec?.name || model.name || model.id} · Venice`,
     provider: 'venice',
     mode: 't2i',
     supportedParameters: {},
@@ -209,7 +251,7 @@ function normalizeVeniceModel(model) {
   });
 }
 
-export async function discoverPrivacyModels() {
+async function fetchDiscoveredPrivacyModels() {
   const found = [];
   const store = storage();
 
@@ -220,7 +262,11 @@ export async function discoverPrivacyModels() {
       });
       if (!response.ok) throw await requestError(response, 'venice');
       const body = await response.json();
-      (body.data || []).filter((model) => model.type === 'image').forEach((model) => found.push(normalizeVeniceModel(model)));
+      for (const item of body.data || []) {
+        if (item.type && item.type !== 'image') continue;
+        const model = normalizeVeniceImageModel(item);
+        if (model) found.push(model);
+      }
     } catch (error) {
       console.warn('[Privacy API] Venice model discovery failed:', error.message);
     }
@@ -233,13 +279,57 @@ export async function discoverPrivacyModels() {
       });
       if (!response.ok) throw await requestError(response, 'openrouter');
       const body = await response.json();
-      (body.data || []).forEach((model) => found.push(normalizeOpenRouterModel(model)));
+      for (const item of body.data || []) {
+        const t2i = normalizeOpenRouterImageModel(item);
+        if (t2i) found.push(t2i);
+        const i2i = normalizeOpenRouterEditModel(item);
+        if (i2i) found.push(i2i);
+      }
     } catch (error) {
       console.warn('[Privacy API] OpenRouter model discovery failed:', error.message);
     }
   }
 
-  return found.length ? found : getFallbackPrivacyModels('t2i');
+  return found;
+}
+
+function readImageModelCache() {
+  try {
+    const cached = JSON.parse(storage()?.getItem(IMAGE_MODEL_CACHE_KEY) || 'null');
+    if (!cached || !Array.isArray(cached.models) || !Number.isFinite(cached.updatedAt)) return [];
+    if (Date.now() - cached.updatedAt > IMAGE_MODEL_CACHE_MAX_AGE_MS) return [];
+    return dedupeModels(cached.models);
+  } catch {
+    return [];
+  }
+}
+
+function writeImageModelCache(models) {
+  try {
+    storage()?.setItem(IMAGE_MODEL_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      models,
+    }));
+  } catch {}
+}
+
+export function getBootstrapPrivacyModels(mode = 't2i') {
+  return dedupeModels([
+    ...filterMode(readImageModelCache(), mode),
+    ...getFallbackPrivacyModels(mode),
+  ]).map((model) => ({ ...model }));
+}
+
+export async function discoverPrivacyModels(mode = 't2i') {
+  const found = filterMode(await fetchDiscoveredPrivacyModels(), mode);
+  return (found.length ? dedupeModels(found) : getFallbackPrivacyModels(mode))
+    .map((model) => ({ ...model }));
+}
+
+export async function refreshPrivacyModelCache() {
+  const found = dedupeModels(await fetchDiscoveredPrivacyModels());
+  if (found.length) writeImageModelCache(found);
+  return found.map((model) => ({ ...model }));
 }
 
 function supports(model, parameter) {
