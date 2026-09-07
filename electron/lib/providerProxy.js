@@ -30,6 +30,16 @@ function validatePath(provider, rawPath) {
     return `${url.pathname}${url.search}`;
 }
 
+function validHttpReferer(value) {
+    if (!value) return null;
+    try {
+        const url = new URL(String(value));
+        return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
 function filteredHeaders(provider, input = {}) {
     const normalized = Object.fromEntries(
         Object.entries(input).map(([key, value]) => [String(key).toLowerCase(), value])
@@ -39,7 +49,8 @@ function filteredHeaders(provider, input = {}) {
         if (normalized[key]) headers[key] = String(normalized[key]);
     }
     if (provider === 'openrouter') {
-        if (normalized['http-referer']) headers['http-referer'] = String(normalized['http-referer']);
+        const referer = validHttpReferer(normalized['http-referer']);
+        if (referer) headers['http-referer'] = referer;
         if (normalized['x-title']) headers['x-title'] = String(normalized['x-title']);
     }
     return headers;
@@ -92,6 +103,7 @@ function register() {
 module.exports = {
     register,
     validatePath,
+    validHttpReferer,
     filteredHeaders,
     prepareProviderRequest,
     MAX_REQUEST_BYTES,
