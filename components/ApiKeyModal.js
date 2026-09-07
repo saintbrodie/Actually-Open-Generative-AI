@@ -40,6 +40,12 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
     // the image studio mount while direct-provider generation reads the real
     // Venice/OpenRouter key from localStorage. It is never sent to a provider.
     onSave(muapi || PRIVACY_SENTINEL);
+
+    // The model-family picker is built at module load. Reloading after a BYOK-
+    // only setup lets it order the provider the user actually configured first.
+    if (!muapi && (venice || openrouter)) {
+      window.setTimeout(() => window.location.reload(), 0);
+    }
   };
 
   const wrapperClass = overlay
