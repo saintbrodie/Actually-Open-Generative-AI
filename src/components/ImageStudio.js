@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/apiClient.js';
+import { muapi } from '../lib/muapi.js';
 import {
     t2iModels, getAspectRatiosForModel, getResolutionsForModel, getQualityFieldForModel,
     i2iModels, getAspectRatiosForI2IModel, getResolutionsForI2IModel, getQualityFieldForI2IModel,
@@ -11,6 +11,8 @@ import { AuthModal } from './AuthModal.js';
 import { t } from '../lib/i18n.js';
 import { createUploadPicker } from './UploadPicker.js';
 import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pendingJobs.js';
+import { downloadImage } from '../../packages/studio/src/utils/downloadImage.js';
+import { appendGenerationRefundNotice } from '../../packages/studio/src/utils/generationLifecycle.js';
 
 function createInlineInstructions(type) {
     const el = document.createElement('div');
@@ -28,9 +30,6 @@ export function ImageStudio() {
     container.className = 'w-full h-full flex flex-col items-center justify-center bg-app-bg relative p-4 md:p-6 overflow-y-auto custom-scrollbar overflow-x-hidden';
 
     // --- State ---
-    let currentProvider = localStorage.getItem('active_provider') || 'venice';
-    let dynamicModels = [];
-
     const defaultModel = t2iModels[0];
     let selectedModel = defaultModel.id;
     let selectedModelName = defaultModel.name;
@@ -66,28 +65,10 @@ export function ImageStudio() {
     // Quick tools panel state
     let showToolsPanel = false;
 
-    const getCurrentModels = () => dynamicModels.length > 0 ? dynamicModels : (imageMode ? i2iModels : t2iModels);
+    const getCurrentModels = () => imageMode ? i2iModels : t2iModels;
     const getCurrentAspectRatios = (id) => imageMode ? getAspectRatiosForI2IModel(id) : getAspectRatiosForModel(id);
     const getCurrentResolutions = (id) => imageMode ? getResolutionsForI2IModel(id) : getResolutionsForModel(id);
     const getCurrentQualityField = (id) => imageMode ? getQualityFieldForI2IModel(id) : getQualityFieldForModel(id);
-
-    // Fetch models dynamically
-    const loadDynamicModels = async () => {
-        const fetched = await apiClient.getModels(currentProvider);
-        if (fetched && fetched.length > 0) {
-            dynamicModels = fetched;
-            if (!dynamicModels.find(m => m.id === selectedModel)) {
-                selectedModel = dynamicModels[0].id;
-                selectedModelName = dynamicModels[0].name;
-                const mBtnLabel = document.getElementById('model-btn-label');
-                if (mBtnLabel) mBtnLabel.textContent = selectedModelName;
-            }
-        } else {
-            dynamicModels = [];
-        }
-    };
-    // Initial load
-    loadDynamicModels();
 
     // ==========================================
     // 1. HERO SECTION
@@ -132,11 +113,9 @@ export function ImageStudio() {
     topRow.className = 'flex items-start gap-5 px-2';
 
     // --- Image Upload Picker (Image-to-Image) ---
-    // Note: Since Venice doesn't support file uploads via a simple Muapi-like method, we might just use Base64 locally, 
-    // but for now we skip implementing the exact upload logic since we removed muapi.uploadFile
     const picker = createUploadPicker({
         anchorContainer: container,
-        uploadFn: (file) => useLocalModel ? URL.createObjectURL(file) : Promise.reject('Upload disabled'),
+        uploadFn: (file) => useLocalModel ? URL.createObjectURL(file) : muapi.uploadFile(file),
         requireApiKey: () => !useLocalModel,
         onSelect: ({ url, urls }) => {
             uploadedImageUrls = urls || [url];
@@ -252,11 +231,6 @@ export function ImageStudio() {
         controlsLeft.appendChild(localToggleBtn);
     }
 
-    const providerBtn = createControlBtn(`
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-60 text-secondary"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    `, currentProvider.toUpperCase(), 'provider-btn', 'Change API Provider');
-
-    controlsLeft.appendChild(providerBtn);
     controlsLeft.appendChild(modelBtn);
     controlsLeft.appendChild(arBtn);
     controlsLeft.appendChild(qualityBtn);
@@ -1075,25 +1049,6 @@ export function ImageStudio() {
         });
     };
 
-    // --- Helper: Download image ---
-    const downloadImage = async (url, filename) => {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-        } catch (err) {
-            // Fallback: open in new tab
-            window.open(url, '_blank');
-        }
-    };
-
     // --- Load history from localStorage ---
     try {
         const saved = JSON.parse(localStorage.getItem('muapi_history') || '[]');
@@ -1105,17 +1060,38 @@ export function ImageStudio() {
         }
     } catch (e) { /* ignore */ }
 
-        // --- Resume any pending image generations from a previous session ---
+    // --- Resume any pending image generations from a previous session ---
     (async () => {
         const pending = getPendingJobs('image');
         if (!pending.length) return;
 
-        const apiKey = localStorage.getItem('venice_api_key') || localStorage.getItem('openrouter_api_key');
-        if (!apiKey) return; 
+        const apiKey = localStorage.getItem('muapi_key');
+        if (!apiKey) return; // can't poll without key; jobs remain for next time
 
-        // We removed Muapi polling so we can just clear pending jobs since Venice/OpenRouter are typically synchronous 
-        // or require different async handling that we haven't built complex polling for yet.
-        pending.forEach(job => removePendingJob(job.requestId));
+        const banner = document.createElement('div');
+        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-[#111] border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3';
+        banner.innerHTML = `<span class="animate-spin text-primary">◌</span> <span class="banner-text">Resuming ${pending.length} pending generation${pending.length > 1 ? 's' : ''}…</span>`;
+        document.body.appendChild(banner);
+
+        let remaining = pending.length;
+        pending.forEach(async (job) => {
+            const elapsedAttempts = Math.floor((Date.now() - job.submittedAt) / job.interval);
+            const attemptsLeft = Math.max(1, job.maxAttempts - elapsedAttempts);
+            try {
+                const result = await muapi.pollForResult(job.requestId, apiKey, attemptsLeft, job.interval);
+                const url = result.outputs?.[0] || result.url || result.output?.url;
+                if (url) {
+                    addToHistory({ id: job.requestId, url, ...job.historyMeta, timestamp: new Date().toISOString() });
+                }
+            } catch (e) {
+                console.warn('[ImageStudio] Pending job failed on resume:', job.requestId, e.message);
+            } finally {
+                removePendingJob(job.requestId);
+                remaining--;
+                if (remaining === 0) banner.remove();
+                else banner.querySelector('.banner-text').textContent = `Resuming ${remaining} pending generation${remaining > 1 ? 's' : ''}…`;
+            }
+        });
     })();
 
     // --- Button Handlers ---
@@ -1244,7 +1220,7 @@ export function ImageStudio() {
         }
 
         // ── Remote API path ───────────────────────────────────────────────────
-        const apiKey = localStorage.getItem(`${currentProvider}_api_key`);
+        const apiKey = localStorage.getItem('muapi_key');
         if (!apiKey) {
             AuthModal(() => generateBtn.click());
             return;
@@ -1255,41 +1231,48 @@ export function ImageStudio() {
         generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> Generating...`;
 
         let hadError = false;
+        let capturedRequestId = null;
+        const historyMeta = { prompt, model: selectedModel, aspect_ratio: selectedAr };
 
         try {
             let res;
             const qualityLabel = document.getElementById('quality-btn-label')?.textContent;
-            
-            // Extract dimensions from aspect ratio 
-            let genWidth = customWidth;
-            let genHeight = customHeight;
-            if (!genWidth || !genHeight) {
-                const parts = selectedAr.split(':');
-                if (parts.length === 2) {
-                    const ratio = parseInt(parts[0]) / parseInt(parts[1]);
-                    if (ratio > 1) { genWidth = 1024; genHeight = Math.round(1024 / ratio); }
-                    else { genHeight = 1024; genWidth = Math.round(1024 * ratio); }
-                }
+            if (imageMode) {
+                const genParams = {
+                    model: selectedModel,
+                    images_list: uploadedImageUrls,
+                    image_url: uploadedImageUrls[0], // backward compat for single-image models
+                    aspect_ratio: selectedAr,
+                    onRequestId: (rid) => {
+                        capturedRequestId = rid;
+                        savePendingJob({ requestId: rid, studioType: 'image', historyMeta, maxAttempts: 60, interval: 2000, submittedAt: Date.now() });
+                    }
+                };
+                if (prompt) genParams.prompt = prompt;
+                const qualityField = getCurrentQualityField(selectedModel);
+                if (qualityField && qualityLabel) genParams[qualityField] = qualityLabel;
+                res = await muapi.generateI2I(genParams);
+            } else {
+                const genParams = {
+                    model: selectedModel,
+                    prompt,
+                    aspect_ratio: selectedAr,
+                    onRequestId: (rid) => {
+                        capturedRequestId = rid;
+                        savePendingJob({ requestId: rid, studioType: 'image', historyMeta, maxAttempts: 60, interval: 2000, submittedAt: Date.now() });
+                    }
+                };
+                const qualityField = getCurrentQualityField(selectedModel);
+                if (qualityField && qualityLabel) genParams[qualityField] = qualityLabel;
+                res = await muapi.generateImage(genParams);
             }
-
-            const genParams = {
-                provider: currentProvider,
-                model: selectedModel,
-                prompt,
-                negative_prompt: negativePrompt,
-                aspect_ratio: selectedAr,
-                width: genWidth,
-                height: genHeight,
-                seed: seed
-            };
-
-            res = await apiClient.generateImage(genParams);
 
             console.log('[ImageStudio] Full response:', res);
 
             if (res && res.url) {
+                if (capturedRequestId) removePendingJob(capturedRequestId);
                 addToHistory({
-                    id: Date.now().toString(),
+                    id: res.id || capturedRequestId || Date.now().toString(),
                     url: res.url,
                     prompt: prompt,
                     model: selectedModel,
@@ -1303,10 +1286,12 @@ export function ImageStudio() {
             }
         } catch (e) {
             hadError = true;
+            if (capturedRequestId) removePendingJob(capturedRequestId);
             console.error(e);
             // Restore hero so the page doesn't look broken after a failed generation
             hero.classList.remove('opacity-0', 'scale-95', '-translate-y-10', 'pointer-events-none');
-            generateBtn.innerHTML = `Error: ${e.message.slice(0, 60)}`;
+            const errorMessage = appendGenerationRefundNotice(e.message, e);
+            generateBtn.textContent = `Error: ${errorMessage.slice(0, 100)}`;
             setTimeout(() => {
                 generateBtn.innerHTML = t('common.generate');
             }, 4000);
@@ -1315,20 +1300,6 @@ export function ImageStudio() {
             // Only reset the label on success; the catch timeout handles the error case
             if (!hadError) generateBtn.innerHTML = t('common.generate');
         }
-    };
-
-    providerBtn.onclick = async (e) => {
-        e.stopPropagation();
-        currentProvider = currentProvider === 'venice' ? 'openrouter' : 'venice';
-        localStorage.setItem('active_provider', currentProvider);
-        document.getElementById('provider-btn-label').textContent = currentProvider.toUpperCase();
-        
-        const prevText = generateBtn.innerHTML;
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = `<span class="animate-spin inline-block mr-2 text-black">◌</span> Loading...`;
-        await loadDynamicModels();
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = `Generate ✨`;
     };
 
     return container;

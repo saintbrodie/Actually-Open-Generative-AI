@@ -1,12 +1,51 @@
 const LANG_KEY = 'og_lang';
 
-export function getLang() {
-    return localStorage.getItem(LANG_KEY) || 'en';
+/** Normalize legacy `zh` and browser locales to BCP-47 zh-CN. */
+export function normalizeLang(raw) {
+    if (!raw) return 'en';
+    const lower = String(raw).toLowerCase();
+    if (lower === 'zh' || lower.startsWith('zh-') || lower.startsWith('zh_')) return 'zh-CN';
+    return lower === 'zh-cn' ? 'zh-CN' : 'en';
 }
 
-export function setLang(lang) {
+/** Detect browser locale on first visit; migrates stored `zh` → `zh-CN`. */
+export function initLocale() {
+    if (typeof localStorage === 'undefined') return 'en';
+    const stored = localStorage.getItem(LANG_KEY);
+    if (stored) {
+        const normalized = normalizeLang(stored);
+        if (normalized !== stored) localStorage.setItem(LANG_KEY, normalized);
+        return normalized;
+    }
+    const detected = typeof navigator !== 'undefined' ? navigator.language : 'en';
+    const lang = normalizeLang(detected);
     localStorage.setItem(LANG_KEY, lang);
-    location.reload();
+    return lang;
+}
+
+export function getLang() {
+    if (typeof localStorage === 'undefined') return 'en';
+    const stored = localStorage.getItem(LANG_KEY);
+    if (!stored) return initLocale();
+    const normalized = normalizeLang(stored);
+    if (normalized !== stored) localStorage.setItem(LANG_KEY, normalized);
+    return normalized;
+}
+
+export function setLang(lang, { reload = true } = {}) {
+    const normalized = normalizeLang(lang);
+    localStorage.setItem(LANG_KEY, normalized);
+    if (reload && typeof location !== 'undefined') {
+        location.reload();
+    } else if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('og_lang_change', { detail: normalized }));
+    }
+}
+
+function dictFor(lang) {
+    const key = normalizeLang(lang);
+    if (key === 'zh-CN') return translations['zh-CN'] || translations.zh;
+    return translations.en;
 }
 
 const translations = {
@@ -52,23 +91,19 @@ const translations = {
         'settings.title': 'Settings',
         'settings.apiKey': 'API Key',
         'settings.localModels': 'Local Models',
-        'settings.veniceKeyLabel': 'Venice.ai API Key',
-        'settings.veniceKeyPlaceholder': 'Enter your Venice API key...',
-        'settings.openrouterKeyLabel': 'OpenRouter API Key',
-        'settings.openrouterKeyPlaceholder': 'Enter your OpenRouter API key...',
-        'settings.keyNote': 'Your API keys are stored locally and only used to contact their respective services.',
-        'settings.invalidKey': 'Please enter at least one API key.',
+        'settings.muapiKeyLabel': 'Muapi API Key',
+        'settings.keyPlaceholder': 'Enter your Muapi API key...',
+        'settings.keyNote': 'Your API key is stored locally and never sent anywhere except api.muapi.ai.',
+        'settings.invalidKey': 'Please enter a valid API key.',
 
         // Auth Modal
-        'auth.title': 'API Key Required',
-        'auth.subtitle': 'Please provide an API key to start creating. You can provide one or both.',
-        'auth.veniceKeyLabel': 'Venice.ai API Key',
-        'auth.veniceKeyPlaceholder': 'Enter your Venice API key...',
-        'auth.openrouterKeyLabel': 'OpenRouter API Key',
-        'auth.openrouterKeyPlaceholder': 'Enter your OpenRouter API key...',
-        'auth.getVeniceKey': 'Get Venice Key →',
-        'auth.getOpenrouterKey': 'Get OpenRouter Key →',
+        'auth.title': 'Muapi API Key Required',
+        'auth.subtitle': 'Create a Muapi access key, then paste the key value here to start creating high-aesthetic images.',
+        'auth.keyLabel': 'Muapi Access Key',
+        'auth.keyPlaceholder': 'Paste your access key value...',
+        'auth.keyNote': 'Do not enter the key name or label; paste the generated key value from Muapi.',
         'auth.initBtn': 'Initialize Studio',
+        'auth.createKey': 'Create or copy a Muapi access key →',
 
         // Image Studio
         'image.title': 'Image Studio',
@@ -203,6 +238,17 @@ const translations = {
         'localModels.probing': 'Probing...',
         'localModels.errorLoading': 'Error loading models: ',
         'localModels.deleteConfirm': (name) => `Delete "${name}"? You'll need to re-download it to use it again.`,
+
+        // Web shell
+        'web.settingsTitle': 'Settings — API key, local models, preferences',
+        'web.switchToEn': 'Switch to English',
+        'web.switchToZh': '切换为中文',
+
+        // MCP & CLI page
+        'mcp.tagline': 'For developers & AI agents',
+        'mcp.title': 'MCP & CLI',
+        'mcp.subtitle': 'Use Open Generative AI from your terminal, your IDE, or any MCP-compatible assistant. Generate cinematic images, videos, and audio across 100+ models — without leaving your workflow.',
+        'mcp.quickStart': 'Quick start',
     },
     zh: {
         // Navigation
@@ -246,23 +292,19 @@ const translations = {
         'settings.title': '设置',
         'settings.apiKey': 'API 密钥',
         'settings.localModels': '本地模型',
-        'settings.veniceKeyLabel': 'Venice.ai API 密钥',
-        'settings.veniceKeyPlaceholder': '输入您的 Venice API 密钥...',
-        'settings.openrouterKeyLabel': 'OpenRouter API 密钥',
-        'settings.openrouterKeyPlaceholder': '输入您的 OpenRouter API 密钥...',
-        'settings.keyNote': '您的 API 密钥仅存储在本地，只用于同相应的服务接口通信。',
-        'settings.invalidKey': '请至少输入一个 API 密钥。',
+        'settings.muapiKeyLabel': 'Muapi API 密钥',
+        'settings.keyPlaceholder': '输入您的 Muapi API 密钥...',
+        'settings.keyNote': '您的 API 密钥仅存储在本地，除 api.muapi.ai 外不会发送到任何地方。',
+        'settings.invalidKey': '请输入有效的 API 密钥。',
 
         // Auth Modal
-        'auth.title': '需要 API 密钥',
-        'auth.subtitle': '请提供 API 密钥以开始创作。您可以提供一个或两个密钥。',
-        'auth.veniceKeyLabel': 'Venice.ai API 密钥',
-        'auth.veniceKeyPlaceholder': '输入您的 Venice API 密钥...',
-        'auth.openrouterKeyLabel': 'OpenRouter API 密钥',
-        'auth.openrouterKeyPlaceholder': '输入您的 OpenRouter API 密钥...',
-        'auth.getVeniceKey': '获取 Venice 密钥 →',
-        'auth.getOpenrouterKey': '获取 OpenRouter 密钥 →',
+        'auth.title': '需要 Muapi API 密钥',
+        'auth.subtitle': '创建一个 Muapi 访问密钥，然后将密钥值粘贴到这里开始创建高质量图像。',
+        'auth.keyLabel': 'Muapi 访问密钥',
+        'auth.keyPlaceholder': '粘贴您的访问密钥值...',
+        'auth.keyNote': '请不要输入密钥名称或标签；粘贴从 Muapi 生成的密钥值。',
         'auth.initBtn': '初始化工作室',
+        'auth.createKey': '创建或复制 Muapi 访问密钥 →',
 
         // Image Studio
         'image.title': '图像工作室',
@@ -397,19 +439,32 @@ const translations = {
         'localModels.probing': '探测中...',
         'localModels.errorLoading': '加载模型时出错：',
         'localModels.deleteConfirm': (name) => `删除"${name}"？您需要重新下载才能再次使用。`,
+
+        // Web shell
+        'web.settingsTitle': '设置 — API 密钥、本地模型、偏好',
+        'web.switchToEn': 'Switch to English',
+        'web.switchToZh': '切换为中文',
+
+        // MCP & CLI page
+        'mcp.tagline': '面向开发者与 AI 智能体',
+        'mcp.title': 'MCP & CLI',
+        'mcp.subtitle': '在终端、IDE 或任何兼容 MCP 的助手中使用 Open Generative AI。跨 100+ 模型生成电影级图像、视频和音频 — 无需离开您的工作流。',
+        'mcp.quickStart': '快速开始',
     },
 };
 
+translations['zh-CN'] = translations.zh;
+
 export function t(key) {
     const lang = getLang();
-    const dict = translations[lang] || translations.en;
+    const dict = dictFor(lang);
     const val = dict[key] !== undefined ? dict[key] : (translations.en[key] !== undefined ? translations.en[key] : key);
     return typeof val === 'function' ? val : val;
 }
 
 export function tf(key, ...args) {
     const lang = getLang();
-    const dict = translations[lang] || translations.en;
+    const dict = dictFor(lang);
     const val = dict[key] !== undefined ? dict[key] : (translations.en[key] !== undefined ? translations.en[key] : key);
     return typeof val === 'function' ? val(...args) : val;
 }
