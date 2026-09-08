@@ -9,7 +9,7 @@ The current code sync target is upstream commit `9745e95` from **September 6, 20
 - **Direct-provider image generation and editing** with your own **Venice** or **OpenRouter** key.
 - **Direct-provider text-to-video** with normalized async queue/poll handling for Venice and OpenRouter.
 - **Direct Venice image-to-video** using browser-local data-URL references rather than the compatibility uploader.
-- **Provider model discovery** for Venice and OpenRouter image/video catalogs, cached locally and merged with conservative known-good fallbacks.
+- **Live provider model discovery** for Venice and OpenRouter image/video catalogs. Fresh capabilities update mounted Image/Video pickers without a page reload and are cached locally for faster subsequent starts.
 - **Model-aware upload routing.** Selecting a direct BYOK model keeps compatible image references local even when a real MuAPI compatibility key is also configured.
 - **Compatibility-only studios are gated explicitly** in BYOK-only sessions instead of mounting as though a MuAPI session exists and failing after an upload/generation attempt.
 - **Local inference** remains available in the desktop/Electron build.
@@ -26,9 +26,9 @@ The long-term goal is a fully provider-agnostic application. It is not there yet
 |---|---:|---:|---:|---:|
 | Text-to-image | ✅ | ✅ | ✅ | ✅ |
 | Image-to-image / reference editing | ✅ known-good adapters | ✅ capability-discovered | model-dependent | ✅ |
-| Image model discovery | ✅ cached | ✅ cached | n/a | n/a |
+| Image model discovery | ✅ live + cached | ✅ live + cached | n/a | n/a |
 | Text-to-video | ✅ | ✅ | ✅ Wan2GP models | ✅ |
-| Video model discovery | ✅ cached | ✅ cached | n/a | n/a |
+| Video model discovery | ✅ live + cached | ✅ live + cached | n/a | n/a |
 | Image-to-video | ✅ local references | 🚧 public-URL constraint | ✅ supported Wan2GP models | ✅ |
 | Reference-to-video / V2V | 🚧 | 🚧 | model-dependent | ✅ |
 | Lip sync / audio / clipping | 🚧 | 🚧 | model-dependent | ✅ |
@@ -39,14 +39,11 @@ Compatibility-only studios show a clear **MuAPI compatibility key required** sta
 
 ### Model discovery behavior
 
-Provider discovery is live, but the existing upstream family catalogs are still initialized statically at module load. To avoid a risky picker rewrite, the fork uses a cache-backed bootstrap:
+Known-good fallback entries are available immediately. When a Venice/OpenRouter key exists, the app refreshes provider image/video metadata in the background and stores normalized results in a 24-hour local cache.
 
-1. Known-good fallback entries are available immediately.
-2. When a Venice/OpenRouter key exists, the app refreshes provider model metadata in the background.
-3. Normalized image/video capability metadata is cached locally for 24 hours.
-4. On the next app load, cached provider models are merged into the upstream model catalogs alongside the fallbacks.
+The upstream family/picker system was originally built once at module load. Rather than replacing that system or forcing a page reload, this fork keeps the exported catalog objects, arrays, and maps **reference-stable** and rebuilds their contents in place after discovery. A tiny catalog revision store then notifies mounted React Image/Video studios with `useSyncExternalStore`, causing them to re-read the updated picker contents. The Vite/Electron shell shares the same mutable provider model arrays and refresh runtime, so newly discovered entries are available there as well.
 
-This means newly discovered models currently appear **after a reload**, not reactively in an already-mounted picker.
+Saving provider keys triggers discovery immediately. A normal page reload is no longer required just to expose newly discovered models.
 
 Discovery is deliberately conservative:
 
@@ -68,7 +65,7 @@ Discovery is deliberately conservative:
 - I2I/reference: `bytedance-seed/seedream-4.5`, up to 14 references where supported
 - T2V: `bytedance/seedance-2.0-fast`
 
-These are bootstrap safety nets, not a hardcoded statement that only those models can work. Cached provider discovery is now the expanding catalog source.
+These are bootstrap safety nets, not a hardcoded statement that only those models can work. Live provider discovery is the expanding catalog source; the cache simply makes discovered metadata available immediately on later starts.
 
 ### Why keep the compatibility layer?
 
@@ -102,6 +99,18 @@ Electron / packaged Vite app
         └── unported workflow ───────> upstream compatibility client
 ```
 
+Provider catalog refresh is a separate control path:
+
+```text
+provider key saved / app startup
+        │
+        ├── discover image + video metadata
+        ├── normalize + cache capabilities
+        ├── update provider model arrays
+        ├── rebuild family/picker catalogs in place
+        └── publish catalog revision ──> mounted React studios re-render
+```
+
 For reference media, the routing decision is also model-aware:
 
 ```text
@@ -120,9 +129,12 @@ Important files:
 
 ```text
 packages/studio/src/privacyApi.js                              Venice/OpenRouter image adapter + discovery
-packages/studio/src/privacyModelsBootstrap.js                  Cached BYOK image catalog injection
+packages/studio/src/privacyModelsBootstrap.js                  BYOK image model normalization/injection
 packages/studio/src/privacyVideoApi.js                         Venice/OpenRouter async video adapter + discovery
-packages/studio/src/privacyVideoModelsBootstrap.js             Cached BYOK video catalog injection
+packages/studio/src/privacyVideoModelsBootstrap.js             BYOK video model normalization/injection
+packages/studio/src/providerCatalogRuntime.js                  Discovery refresh + live catalog rebuild orchestration
+packages/studio/src/providerCatalogEvents.js                   React-safe catalog revision store
+packages/studio/src/modelFamilies.js                           Upstream family builder + in-place refresh seams
 packages/studio/src/compatibilityAuth.js                       Compatibility capability/auth + upload-routing rules
 packages/studio/src/components/CompatibilityStudioGate.jsx     BYOK-only lock state for compatibility-only studios
 packages/studio/src/muapi.js                                   React provider/compatibility router
@@ -160,7 +172,7 @@ npm run setup
 npm run dev
 ```
 
-Open the app, add a Venice and/or OpenRouter key, then choose a BYOK entry in Image Studio or Video Studio. Provider model metadata refreshes automatically; reload once after the first authenticated discovery pass to expose newly cached models in the current static picker architecture.
+Open the app, add a Venice and/or OpenRouter key, then choose a BYOK entry in Image Studio or Video Studio. Provider model metadata refreshes in the background and the mounted model pickers update when fresh capabilities arrive.
 
 Add a MuAPI compatibility key only if you also want studios/features that have not yet been ported to direct-provider adapters.
 
@@ -216,6 +228,7 @@ The Node suite now covers more than build smoke tests. It includes:
 - OpenRouter video submit/poll/authenticated-content download behavior and terminal failures.
 - Venice I2V data-URL queue behavior.
 - Venice/OpenRouter image and video discovery normalization/cache behavior.
+- Live provider-catalog revision notifications and source-level in-place refresh/subscription contracts.
 - Compatibility-key sentinel rejection.
 - Mixed-session model-aware reference-upload routing rules and source-level studio wiring checks.
 
@@ -223,7 +236,7 @@ CI also parses/builds the Vite proxy configuration and catches workspace, Next.j
 
 ## Roadmap
 
-1. Make provider discovery update the mounted React image/video pickers reactively instead of requiring a reload after cache refresh.
+1. Improve provider-catalog lifecycle handling: prune stale discovered-only entries when credentials are removed or provider catalogs shrink, expose refresh/loading/error state in the UI, and optionally provide a manual refresh control.
 2. Design a privacy-preserving hosted-reference strategy before enabling OpenRouter I2V/reference-video paths that require stable externally reachable media URLs.
 3. Expand direct video coverage to Venice/OpenRouter reference-to-video, V2V, and provider-specific multimodal controls through capability metadata rather than studio-specific conditionals.
 4. Replace the remaining compatibility-key sentinel plumbing with first-class capability/auth state throughout the shell; the compatibility-only studio gate is the first step, not the final architecture.
