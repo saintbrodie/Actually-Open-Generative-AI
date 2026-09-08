@@ -82,7 +82,7 @@ async function downloadImage(url, filename) {
 
 // ─── UploadButton (inline picker) ───────────────────────────────────────────
 
-function UploadButton({ apiKey, maxImages, onSelect, onClear, initialUrls = [], label = null, persistedHistory = null, onHistoryChange = null, copy }) {
+function UploadButton({ apiKey, targetModelId = null, maxImages, onSelect, onClear, initialUrls = [], label = null, persistedHistory = null, onHistoryChange = null, copy }) {
   const t = copy.uploadButton;
   const [panelOpen, setPanelOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -221,7 +221,7 @@ function UploadButton({ apiKey, maxImages, onSelect, onClear, initialUrls = [], 
               setUploadHistory((prev) =>
                 prev.map((h) => (h.id === id ? { ...h, progress: pct } : h)),
               );
-            });
+            }, targetModelId);
 
             // Update history with real URL and Mark as 100%
             setUploadHistory((prev) =>
@@ -1163,7 +1163,7 @@ export default function ImageStudio({
       const urls = await Promise.all(
         toUpload.map(async (file) => {
           try {
-            return await uploadFile(apiKey, file);
+            return await uploadFile(apiKey, file, undefined, editor.model.id);
           } catch (err) {
             console.error(
               "[ImageStudio] Drop upload failed for",
@@ -1641,6 +1641,7 @@ export default function ImageStudio({
               {referenceVariant && uploadedImageUrls.length < referenceImageLimit && (
                 <UploadButton
                   apiKey={apiKey}
+                  targetModelId={referenceVariant.model.id}
                   maxImages={referenceImageLimit}
                   onSelect={handleUploadSelect}
                   onClear={handleUploadClear}
@@ -1655,6 +1656,7 @@ export default function ImageStudio({
               {imageMode && getI2IModelById(selectedModelId)?.swapField && (
                 <UploadButton
                   apiKey={apiKey}
+                  targetModelId={selectedModelId}
                   maxImages={1}
                   onSelect={({ urls }) => setSwapImageUrl(urls[0] || null)}
                   onClear={() => setSwapImageUrl(null)}

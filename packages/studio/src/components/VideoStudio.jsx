@@ -1329,7 +1329,7 @@ export default function VideoStudio({
   );
 
   const uploadFiles = useCallback(
-    async (files, { label, maxBytes, setUploading, setProgress }) => {
+    async (files, { label, maxBytes, setUploading, setProgress, targetModelId = null }) => {
       const selectedFiles = Array.from(files);
       const tooLarge = selectedFiles.find((file) => file.size > maxBytes);
       if (tooLarge) {
@@ -1347,7 +1347,7 @@ export default function VideoStudio({
               setProgress(
                 Math.round(progress.reduce((sum, item) => sum + item, 0) / progress.length),
               );
-            }),
+            }, targetModelId),
           ),
         );
       } catch (err) {
@@ -1387,6 +1387,7 @@ export default function VideoStudio({
         : slot.mediaType === "video"
           ? { label: slot.label, maxBytes: 50 * 1024 * 1024, setUploading: setVideoUploading, setProgress: setVideoProgress }
           : { label: slot.label, maxBytes: 50 * 1024 * 1024, setUploading: setAudioUploading, setProgress: setAudioProgress };
+      options.targetModelId = targetModel?.id || null;
 
       const uploadKey = `${draftKey}:${slot.id}`;
       workflowUploadSlotRef.current = uploadKey;
@@ -1513,6 +1514,7 @@ export default function VideoStudio({
         : mediaType === "video"
           ? { label: copy.media.video, maxBytes: 50 * 1024 * 1024, setUploading: setVideoUploading, setProgress: setVideoProgress }
           : { label: copy.media.audio, maxBytes: 50 * 1024 * 1024, setUploading: setAudioUploading, setProgress: setAudioProgress };
+      options.targetModelId = target.variant.model.id;
       const urls = await uploadFiles(Array.from(files).slice(0, remaining), options);
       applyReferenceUrls(mediaType, urls, target, selectionAtStart);
     },
@@ -1614,7 +1616,7 @@ export default function VideoStudio({
     try {
       const url = await uploadFile(apiKey, file, (pct) => {
         setEndImageProgress(pct);
-      });
+      }, selectionAtStart.selectedModel);
       const latestModel = videoModelCatalog.variantById.get(
         selectionRef.current.selectedModel,
       )?.model;
