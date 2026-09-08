@@ -1,0 +1,33 @@
+name: Patch hosted auth state
+
+on:
+  push:
+    branches:
+      - review/upstream-sync-2026-09-06
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch hosted shell auth state
+        run: python .github/scripts/patch_hosted_auth_state.py
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "Hosted auth state already patched."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/StandaloneShell.js
+          git commit -m "refactor: separate hosted provider and compatibility auth"
+          git push origin HEAD:review/upstream-sync-2026-09-06
