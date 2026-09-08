@@ -1,3 +1,4 @@
+# Temporary diagnostic workflow; remove after the candidate dependency set is validated.
 name: Security upgrade trial
 
 on:
