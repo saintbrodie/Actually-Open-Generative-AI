@@ -1,5 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+contextBridge.exposeInMainWorld('providerAPI', {
+    isElectron: true,
+    request: (payload) => ipcRenderer.invoke('provider-api:request', payload),
+});
+
 contextBridge.exposeInMainWorld('localAI', {
     isElectron: true,
 
