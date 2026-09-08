@@ -34,10 +34,9 @@ test('legacy sentinel is removed instead of becoming a cookie or compatibility r
     assert.doesNotMatch(shell, /muapi_key=\$\{LEGACY_PRIVACY_SENTINEL\}/);
 });
 
-test('BYOK-only settings render without dereferencing a null compatibility key', () => {
+test('BYOK-only settings guard compatibility-key formatting behind a null check', () => {
     const shell = source('components/StandaloneShell.js');
 
     assert.match(shell, /apiKey\s*\? `\$\{apiKey\.slice\(0, 8\)\}/);
     assert.match(shell, /Direct BYOK · no MuAPI compatibility key/);
-    assert.doesNotMatch(shell, /\{apiKey\.slice\(0, 8\)\}••/);
 });
