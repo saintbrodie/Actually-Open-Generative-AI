@@ -163,6 +163,8 @@ src/lib/upstreamMuapi.js                                       Preserved upstrea
 
 ## Quick start
 
+Requires **Node.js 22.13.0 or newer**. The repository includes `.nvmrc`, so nvm users can run `nvm use` before installing dependencies.
+
 ### Hosted / Next.js
 
 ```bash
@@ -218,6 +220,8 @@ node --test tests/*.test.js
 npm run build:packages
 npm run build
 npm run vite:build
+npx electron-builder --linux dir --x64
+npm audit --audit-level=critical
 ```
 
 The Node suite now covers more than build smoke tests. It includes:
@@ -232,7 +236,7 @@ The Node suite now covers more than build smoke tests. It includes:
 - Legacy compatibility-sentinel rejection/migration, with provider and compatibility auth kept separate in hosted and desktop shells.
 - Provider-specific desktop generation auth, mixed-session model-aware reference-upload routing, and direct-provider pending-video resume without a MuAPI key.
 
-CI also parses/builds the Vite proxy configuration and catches workspace, Next.js, and Vite integration regressions. Manual live-key smoke testing is still necessary because mocked contracts cannot validate provider billing, account permissions, transient availability, or undocumented production changes.
+CI also parses/builds the Vite proxy configuration, packages an Electron Linux x64 directory as a desktop smoke test, and rejects any critical dependency advisory. The September 2026 dependency refresh reduced `npm audit` from 35 findings (including 1 critical) to 5 findings (4 moderate, 1 high, 0 critical). The remaining findings require breaking upgrades in Next.js or the upstream Design Agent dependency chain, so they are tracked rather than force-upgraded here. Manual live-key smoke testing is still necessary because mocked contracts cannot validate provider billing, account permissions, transient availability, or undocumented production changes.
 
 ## Roadmap
 
