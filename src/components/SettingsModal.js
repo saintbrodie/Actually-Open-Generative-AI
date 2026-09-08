@@ -2,6 +2,7 @@ import { LocalModelManager } from './LocalModelManager.js';
 import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
 import { PRIVACY_SENTINEL, syncPrivacyCompatibilitySentinel } from '../lib/privacyApi.js';
+import { notifyProviderKeysChanged } from 'studio/src/providerCatalogRuntime.js';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -48,7 +49,7 @@ export function SettingsModal(onClose) {
         <div style="display:flex;flex-direction:column;gap:1rem;">
             <div style="padding:0.9rem 1rem;border:1px solid rgba(34,211,238,0.16);background:rgba(34,211,238,0.04);border-radius:0.75rem;">
                 <div style="font-size:0.75rem;font-weight:800;color:#fff;margin-bottom:0.25rem;">Direct-provider BYOK</div>
-                <div style="font-size:0.7rem;color:rgba(255,255,255,0.45);line-height:1.5;">Venice and OpenRouter keys are used for supported image and video generation without sending those requests through the compatibility backend.</div>
+                <div style="font-size:0.7rem;color:rgba(255,255,255,0.45);line-height:1.5;">Venice and OpenRouter keys are used for supported image and video generation without sending those requests through the compatibility backend. Provider model catalogs refresh automatically when keys change.</div>
             </div>
 
             <div>
@@ -139,6 +140,7 @@ export function SettingsModal(onClose) {
         else localStorage.removeItem('muapi_key');
 
         syncPrivacyCompatibilitySentinel();
+        notifyProviderKeysChanged();
         close();
     };
 
