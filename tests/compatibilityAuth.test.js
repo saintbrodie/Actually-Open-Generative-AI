@@ -35,3 +35,46 @@ test('compatibility auth accepts a real compatibility key unchanged', async () =
     assert.equal(hasCompatibilityKey(key), true);
     assert.equal(requireCompatibilityKey(key), key);
 });
+
+test('reference upload routing follows the selected direct-provider model, not the broadest session key', async () => {
+    const {
+        isDirectByokModelId,
+        shouldKeepReferenceUploadLocal,
+    } = await importCompatibilityAuth();
+
+    assert.equal(isDirectByokModelId('privacy:venice:nano-banana-pro-edit'), true);
+    assert.equal(isDirectByokModelId('privacy-video:venice:seedance-i2v'), true);
+    assert.equal(isDirectByokModelId('nano-banana-pro-edit'), false);
+
+    // A real compatibility key must not force direct-provider image references
+    // through the compatibility uploader.
+    assert.equal(
+        shouldKeepReferenceUploadLocal(
+            'muapi-real-key',
+            'privacy:openrouter:bytedance-seed/seedream-4.5-edit',
+            'image/png',
+        ),
+        true,
+    );
+    assert.equal(
+        shouldKeepReferenceUploadLocal(
+            'muapi-real-key',
+            'privacy-video:venice:seedance-2-0-fast-image-to-video',
+            'image/jpeg',
+        ),
+        true,
+    );
+
+    assert.equal(
+        shouldKeepReferenceUploadLocal('muapi-real-key', 'nano-banana-edit', 'image/png'),
+        false,
+    );
+    assert.equal(
+        shouldKeepReferenceUploadLocal(
+            '__actually_open_byok__',
+            'privacy-video:venice:seedance-2-0-fast-image-to-video',
+            'video/mp4',
+        ),
+        false,
+    );
+});
