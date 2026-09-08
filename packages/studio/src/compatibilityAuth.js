@@ -13,3 +13,15 @@ export function requireCompatibilityKey(apiKey) {
   }
   return apiKey;
 }
+
+export function isDirectByokModelId(modelId) {
+  return Boolean(
+    typeof modelId === 'string' &&
+      (modelId.startsWith('privacy:') || modelId.startsWith('privacy-video:')),
+  );
+}
+
+export function shouldKeepReferenceUploadLocal(apiKey, modelId, fileType) {
+  if (!String(fileType || '').startsWith('image/')) return false;
+  return apiKey === PRIVACY_SENTINEL || isDirectByokModelId(modelId);
+}
