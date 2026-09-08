@@ -1,5 +1,12 @@
-import { hasPrivacyKey, refreshPrivacyModelCache } from './privacyApi.js';
-import { refreshPrivacyVideoModelCache } from './privacyVideoApi.js';
+import {
+  getBootstrapPrivacyModels,
+  hasPrivacyKey,
+  refreshPrivacyModelCache,
+} from './privacyApi.js';
+import {
+  getBootstrapPrivacyVideoModels,
+  refreshPrivacyVideoModelCache,
+} from './privacyVideoApi.js';
 import { applyPrivacyModels } from './privacyModelsBootstrap.js';
 import { applyPrivacyVideoModels } from './privacyVideoModelsBootstrap.js';
 import { publishProviderCatalogRefresh } from './providerCatalogEvents.js';
@@ -8,33 +15,43 @@ export const PROVIDER_KEYS_CHANGED_EVENT = 'actually-open:provider-keys-changed'
 
 let refreshPromise = null;
 
+function currentImageModels() {
+  return [
+    ...getBootstrapPrivacyModels('t2i'),
+    ...getBootstrapPrivacyModels('i2i'),
+  ];
+}
+
+function currentVideoModels() {
+  return [
+    ...getBootstrapPrivacyVideoModels('t2v'),
+    ...getBootstrapPrivacyVideoModels('i2v'),
+  ];
+}
+
 export async function refreshProviderCatalogs() {
-  if (typeof window === 'undefined' || !hasPrivacyKey()) return false;
+  if (typeof window === 'undefined') return false;
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const [imageModels, videoModels] = await Promise.all([
-      refreshPrivacyModelCache(),
-      refreshPrivacyVideoModelCache(),
-    ]);
-
-    let changed = false;
-    if (imageModels.length) {
-      applyPrivacyModels(imageModels);
-      changed = true;
-    }
-    if (videoModels.length) {
-      applyPrivacyVideoModels(videoModels);
-      changed = true;
+    // With provider credentials, refresh caches first. Without credentials we
+    // still rebuild from fallbacks/current cache policy so discovered-only
+    // entries from removed providers are pruned immediately.
+    if (hasPrivacyKey()) {
+      await Promise.all([
+        refreshPrivacyModelCache(),
+        refreshPrivacyVideoModelCache(),
+      ]);
     }
 
-    if (!changed) return false;
+    applyPrivacyModels(currentImageModels());
+    applyPrivacyVideoModels(currentVideoModels());
 
     // Import lazily so the initial bootstrap can populate the upstream model
     // arrays before modelFamilies.js performs its first synchronous build.
     const catalogs = await import('./modelFamilies.js');
-    if (imageModels.length) catalogs.refreshImageModelCatalog();
-    if (videoModels.length) catalogs.refreshVideoModelCatalog();
+    catalogs.refreshImageModelCatalog();
+    catalogs.refreshVideoModelCatalog();
     publishProviderCatalogRefresh();
     return true;
   })().finally(() => {
@@ -56,11 +73,11 @@ if (typeof window !== 'undefined') {
     });
   });
 
-  if (hasPrivacyKey()) {
-    window.setTimeout(() => {
-      refreshProviderCatalogs().catch((error) => {
-        console.warn('[Provider Catalog] initial refresh failed:', error.message);
-      });
-    }, 0);
-  }
+  // Run once after startup even when no provider key exists so stale cached
+  // discovery entries cannot survive a previous credential removal.
+  window.setTimeout(() => {
+    refreshProviderCatalogs().catch((error) => {
+      console.warn('[Provider Catalog] initial refresh failed:', error.message);
+    });
+  }, 0);
 }
