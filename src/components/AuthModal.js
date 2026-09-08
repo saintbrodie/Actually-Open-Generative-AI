@@ -1,5 +1,6 @@
 import { t } from '../lib/i18n.js';
 import { syncPrivacyCompatibilitySentinel } from '../lib/privacyApi.js';
+import { notifyProviderKeysChanged } from 'studio/src/providerCatalogRuntime.js';
 
 export function AuthModal(onSuccess) {
     const overlay = document.createElement('div');
@@ -21,7 +22,7 @@ export function AuthModal(onSuccess) {
                 </svg>
             </div>
             <h2 class="text-2xl font-black text-white uppercase tracking-wider mb-2">${t('auth.title')}</h2>
-            <p class="text-secondary text-sm">Bring your own key for direct image generation.</p>
+            <p class="text-secondary text-sm">Bring your own key for supported image and video generation.</p>
         </div>
 
         <div class="space-y-4">
@@ -38,13 +39,13 @@ export function AuthModal(onSuccess) {
             <details class="group rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
                 <summary class="cursor-pointer text-[11px] font-bold text-muted uppercase tracking-wider">Compatibility key (optional)</summary>
                 <div class="space-y-2 pt-3">
-                    <label class="text-[10px] text-muted">MuAPI — currently required by upstream-only video, lip-sync, agent, and some editing workflows.</label>
+                    <label class="text-[10px] text-muted">MuAPI — required only by workflows that have not been ported to direct providers yet.</label>
                     <input type="password" id="muapi-key-input" autocomplete="off" placeholder="MuAPI key"
                         class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white placeholder:text-muted focus:outline-none focus:border-primary/50 transition-colors shadow-inner">
                 </div>
             </details>
 
-            <p class="text-[11px] text-muted px-1">Keys stay in this browser profile. Direct-provider support currently covers text-to-image; local inference remains available in the desktop build.</p>
+            <p class="text-[11px] text-muted px-1">Keys stay in this app profile. Provider model catalogs refresh automatically after you save; local inference remains available in the desktop build.</p>
 
             <div class="flex flex-col gap-3 pt-1">
                 <button id="save-key-btn" class="w-full bg-primary text-black font-black py-4 rounded-2xl hover:shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all">
@@ -109,6 +110,7 @@ export function AuthModal(onSuccess) {
         else localStorage.removeItem('muapi_key');
 
         syncPrivacyCompatibilitySentinel();
+        notifyProviderKeysChanged();
         close();
         if (onSuccess) onSuccess();
     };
