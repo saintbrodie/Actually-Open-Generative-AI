@@ -1,19 +1,16 @@
 import { i2iModels, t2iModels } from './models.js';
-import {
-  getBootstrapPrivacyModels,
-  refreshPrivacyModelCache,
-} from './privacyApi.js';
+import { getBootstrapPrivacyModels } from './privacyApi.js';
 
-function orderedPrivacyModels(mode) {
-  const models = getBootstrapPrivacyModels(mode);
-  if (typeof window === 'undefined') return models;
+function orderedPrivacyModels(mode, models = getBootstrapPrivacyModels(mode)) {
+  const ordered = models.filter((model) => model.mode === mode).map((model) => ({ ...model }));
+  if (typeof window === 'undefined') return ordered;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
   const hasOpenRouter = Boolean(localStorage.getItem('openrouter_api_key')?.trim());
   if (hasOpenRouter && !hasVenice) {
-    models.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
+    ordered.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
   }
-  return models;
+  return ordered;
 }
 
 function commonModelFields(model) {
@@ -64,30 +61,27 @@ function toI2IModel(model) {
   };
 }
 
-function prependMissing(target, models, mapper) {
-  const existing = new Set(target.map((model) => model.id));
-  const additions = models
-    .filter((model) => !existing.has(model.id))
-    .map(mapper);
-  target.unshift(...additions);
-}
-
-prependMissing(t2iModels, orderedPrivacyModels('t2i'), toT2IModel);
-prependMissing(i2iModels, orderedPrivacyModels('i2i'), toI2IModel);
-
-// The image family/catalog maps are still created synchronously at module load.
-// Refresh provider metadata into a short-lived cache and consume it on the next
-// load rather than mutating mounted catalog maps underneath React components.
-if (typeof window !== 'undefined') {
-  const hasProviderKey = Boolean(
-    localStorage.getItem('venice_api_key')?.trim() ||
-    localStorage.getItem('openrouter_api_key')?.trim(),
-  );
-  if (hasProviderKey) {
-    window.setTimeout(() => {
-      refreshPrivacyModelCache().catch((error) => {
-        console.warn('[Privacy Image Bootstrap] model refresh failed:', error.message);
-      });
-    }, 0);
+function upsertModels(target, models, mapper) {
+  const additions = [];
+  for (const model of models) {
+    const mapped = mapper(model);
+    const index = target.findIndex((entry) => entry.id === mapped.id);
+    if (index >= 0) target[index] = mapped;
+    else additions.push(mapped);
   }
+  target.unshift(...additions);
+  return additions.length + models.length;
 }
+
+export function applyPrivacyModels(models) {
+  const t2i = orderedPrivacyModels('t2i', models);
+  const i2i = orderedPrivacyModels('i2i', models);
+  upsertModels(t2iModels, t2i, toT2IModel);
+  upsertModels(i2iModels, i2i, toI2IModel);
+  return t2i.length + i2i.length;
+}
+
+applyPrivacyModels([
+  ...getBootstrapPrivacyModels('t2i'),
+  ...getBootstrapPrivacyModels('i2i'),
+]);
