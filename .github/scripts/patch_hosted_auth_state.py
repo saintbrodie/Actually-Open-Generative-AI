@@ -44,4 +44,12 @@ if old_gate in text:
 elif '(!apiKey && !hasProviderKey)' not in text:
     raise SystemExit('hosted auth gate: expected legacy gate not found')
 
+old_settings_value = '''                <div className="text-[13px] font-mono text-white/80">\n                  {apiKey.slice(0, 8)}••••••••••••••••\n                </div>'''
+new_settings_value = '''                <div className="text-[13px] font-mono text-white/80">\n                  {apiKey\n                    ? `${apiKey.slice(0, 8)}••••••••••••••••`\n                    : 'Direct BYOK · no MuAPI compatibility key'}\n                </div>'''
+
+if old_settings_value in text:
+    text = text.replace(old_settings_value, new_settings_value, 1)
+elif 'Direct BYOK · no MuAPI compatibility key' not in text:
+    raise SystemExit('hosted settings key display: expected legacy value not found')
+
 path.write_text(text)
