@@ -2,6 +2,7 @@
 
 import './privacyModelsBootstrap.js';
 import './privacyVideoModelsBootstrap.js';
+import './providerCatalogRuntime.js';
 import { withCompatibilityStudio } from './components/CompatibilityStudioGate.jsx';
 
 import ClippingStudioComponent from './components/ClippingStudio';
@@ -38,3 +39,5 @@ export { default as AppsStudio } from './components/AppsStudio';
 export { default as McpCliStudio } from './components/McpCliStudio';
 
 export * from './muapi';
+
+export { refreshProviderCatalogs, notifyProviderKeysChanged } from './providerCatalogRuntime.js';

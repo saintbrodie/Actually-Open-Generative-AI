@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getCommonCopy } from '@/lib/locales';
+import { notifyProviderKeysChanged } from 'studio';
 
 const PRIVACY_SENTINEL = '__actually_open_byok__';
 
@@ -40,12 +41,7 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
     // the directly supported studios mount while provider generation reads the
     // real Venice/OpenRouter key from localStorage. It is never sent upstream.
     onSave(muapi || PRIVACY_SENTINEL);
-
-    // The model-family picker is built at module load. Reloading after a BYOK-
-    // only setup lets it order the provider the user actually configured first.
-    if (!muapi && (venice || openrouter)) {
-      window.setTimeout(() => window.location.reload(), 0);
-    }
+    notifyProviderKeysChanged();
   };
 
   const wrapperClass = overlay

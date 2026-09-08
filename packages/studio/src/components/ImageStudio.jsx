@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { generateImage, generateI2I, uploadFile } from "../muapi.js";
 import { formatErrorMessage } from "../utils/formatError.js";
@@ -60,6 +60,11 @@ import {
 import en from "../messages/en/imageStudio.json";
 import zh from "../messages/zh/imageStudio.json";
 import { resolveCopy } from "../i18nUtils";
+import {
+  getProviderCatalogRevision,
+  getProviderCatalogServerSnapshot,
+  subscribeProviderCatalog,
+} from "../providerCatalogEvents.js";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -979,6 +984,11 @@ export default function ImageStudio({
   locale = "en",
 }) {
   const copy = resolveCopy(en, zh, locale);
+  useSyncExternalStore(
+    subscribeProviderCatalog,
+    getProviderCatalogRevision,
+    getProviderCatalogServerSnapshot,
+  );
   const LEGACY_PERSIST_KEY = "hg_image_studio_persistent";
   const PERSIST_KEY = scopedPersistKey(LEGACY_PERSIST_KEY, apiKey);
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, useId } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useId, useSyncExternalStore } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { generateVideo, generateI2V, processV2V, uploadFile } from "../muapi.js";
 import { formatErrorMessage } from "../utils/formatError.js";
@@ -79,6 +79,11 @@ import {
 import en from "../messages/en/videoStudio.json";
 import zh from "../messages/zh/videoStudio.json";
 import { resolveCopy } from "../i18nUtils";
+import {
+  getProviderCatalogRevision,
+  getProviderCatalogServerSnapshot,
+  subscribeProviderCatalog,
+} from "../providerCatalogEvents.js";
 
 async function downloadFile(url, filename) {
   try {
@@ -714,6 +719,11 @@ export default function VideoStudio({
   locale = "en",
 }) {
   const copy = resolveCopy(en, zh, locale);
+  useSyncExternalStore(
+    subscribeProviderCatalog,
+    getProviderCatalogRevision,
+    getProviderCatalogServerSnapshot,
+  );
   const LEGACY_PERSIST_KEY = "hg_video_studio_persistent";
   const PERSIST_KEY = scopedPersistKey(LEGACY_PERSIST_KEY, apiKey);
   useEffect(() => {

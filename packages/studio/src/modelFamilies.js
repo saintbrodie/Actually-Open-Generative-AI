@@ -724,7 +724,7 @@ function buildModelPickerEntries(catalog, modes, aliases) {
     }
   }
 
-  return Object.freeze(entries);
+  return entries;
 }
 
 export const imageModelPickerEntries = buildModelPickerEntries(
@@ -771,3 +771,85 @@ export const videoModelPickerEntryByVariantId = indexModelPickerEntries(
   videoModelPickerEntries,
   videoModelCatalog,
 );
+
+function replaceMapContents(target, source) {
+  target.clear();
+  for (const [key, value] of source) target.set(key, value);
+}
+
+function replaceCatalogContents(target, source) {
+  target.families.splice(0, target.families.length, ...source.families);
+  replaceMapContents(target.familyById, source.familyById);
+  replaceMapContents(target.familyByVariantId, source.familyByVariantId);
+  replaceMapContents(target.variantById, source.variantById);
+  target.preferredVariants = source.preferredVariants;
+}
+
+export function refreshImageModelCatalog() {
+  const nextCatalog = buildCatalog(
+    [
+      { mode: "t2i", models: t2iModels },
+      { mode: "i2i", models: i2iModels },
+    ],
+    {
+      familyId: imageFamilyId,
+      familyName: (id, fallback) => IMAGE_FAMILY_NAMES[id] || cleanImageFamilyName(fallback),
+      namingModes: ["t2i", "i2i"],
+      preferredVariants: PREFERRED_IMAGE_VARIANTS,
+      seriesVersion: imageSeriesVersion,
+    },
+  );
+  replaceCatalogContents(imageModelCatalog, nextCatalog);
+
+  const nextEntries = buildModelPickerEntries(
+    imageModelCatalog,
+    ["t2i", "i2i"],
+    IMAGE_FAMILY_ALIASES,
+  );
+  imageModelPickerEntries.splice(
+    0,
+    imageModelPickerEntries.length,
+    ...nextEntries,
+  );
+  replaceMapContents(
+    imageModelPickerEntryByVariantId,
+    indexModelPickerEntries(imageModelPickerEntries, imageModelCatalog),
+  );
+  return imageModelCatalog;
+}
+
+export function refreshVideoModelCatalog() {
+  const nextCatalog = buildCatalog(
+    [
+      { mode: "t2v", models: t2vModels },
+      { mode: "i2v", models: i2vModels },
+      { mode: "v2v", models: v2vModels },
+    ],
+    {
+      familyId: videoFamilyId,
+      familyName: videoFamilyName,
+      namingModes: ["t2v", "i2v", "v2v"],
+      preferredVariants: PREFERRED_VIDEO_VARIANTS,
+      seriesVersion: videoSeriesVersion,
+      variantKey: videoVariantKey,
+    },
+  );
+  replaceCatalogContents(videoModelCatalog, nextCatalog);
+
+  const nextEntries = buildModelPickerEntries(
+    videoModelCatalog,
+    ["t2v", "i2v", "v2v"],
+    VIDEO_FAMILY_ALIASES,
+  );
+  videoModelPickerEntries.splice(
+    0,
+    videoModelPickerEntries.length,
+    ...nextEntries,
+  );
+  replaceMapContents(
+    videoModelPickerEntryByVariantId,
+    indexModelPickerEntries(videoModelPickerEntries, videoModelCatalog),
+  );
+  return videoModelCatalog;
+}
+
