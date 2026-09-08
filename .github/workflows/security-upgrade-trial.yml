@@ -1,0 +1,77 @@
+name: Security upgrade trial
+
+on:
+  push:
+    branches:
+      - review/upstream-sync-2026-09-06
+
+permissions:
+  contents: read
+
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Install current lockfile
+        run: npm ci
+
+      - name: Apply candidate security upgrades locally
+        shell: bash
+        run: |
+          npm install axios@1.20.0 next@15.5.24
+          npm install --save-dev electron@44.2.0 electron-builder@26.15.3 postcss@8.5.28 vite@8.2.2
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          for (const name of ['axios', 'next']) console.log(name, pkg.dependencies[name]);
+          for (const name of ['electron', 'electron-builder', 'postcss', 'vite']) console.log(name, pkg.devDependencies[name]);
+          NODE
+
+      - name: Run Node tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspace packages
+        run: npm run build:packages
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Build Vite renderer
+        run: npm run vite:build
+
+      - name: Package Electron Linux directory
+        shell: bash
+        run: npx electron-builder --linux dir --x64
+
+      - name: Audit upgraded production dependencies
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > audit-prod.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          const a = JSON.parse(fs.readFileSync('audit-prod.json', 'utf8'));
+          console.log('UPGRADED_PROD_AUDIT', JSON.stringify(a.metadata?.vulnerabilities || {}));
+          for (const [name, v] of Object.entries(a.vulnerabilities || {})) {
+            console.log(name, v.severity, v.range, JSON.stringify(v.fixAvailable));
+          }
+          NODE
+
+      - name: Audit upgraded full dependency graph
+        shell: bash
+        run: |
+          npm audit --json > audit-all.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          const a = JSON.parse(fs.readFileSync('audit-all.json', 'utf8'));
+          console.log('UPGRADED_ALL_AUDIT', JSON.stringify(a.metadata?.vulnerabilities || {}));
+          for (const [name, v] of Object.entries(a.vulnerabilities || {})) {
+            console.log(name, v.severity, v.range, JSON.stringify(v.fixAvailable));
+          }
+          NODE
