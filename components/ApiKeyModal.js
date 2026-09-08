@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { getCommonCopy } from '@/lib/locales';
 import { notifyProviderKeysChanged } from 'studio';
 
-const PRIVACY_SENTINEL = '__actually_open_byok__';
+const LEGACY_PRIVACY_SENTINEL = '__actually_open_byok__';
 
 export default function ApiKeyModal({ onSave, onClose, overlay = false, title, subtitle, locale = 'en' }) {
   const [veniceKey, setVeniceKey] = useState('');
@@ -17,7 +17,9 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
     setVeniceKey(localStorage.getItem('venice_api_key') || '');
     setOpenRouterKey(localStorage.getItem('openrouter_api_key') || '');
     const existingMuapi = localStorage.getItem('muapi_key') || '';
-    setMuapiKey(existingMuapi === PRIVACY_SENTINEL ? '' : existingMuapi);
+    // Hide the legacy sentinel during migration; the shell removes it rather
+    // than treating it as a compatibility credential.
+    setMuapiKey(existingMuapi === LEGACY_PRIVACY_SENTINEL ? '' : existingMuapi);
   }, []);
 
   const handleSubmit = (e) => {
@@ -37,10 +39,10 @@ export default function ApiKeyModal({ onSave, onClose, overlay = false, title, s
     if (openrouter) localStorage.setItem('openrouter_api_key', openrouter);
     else localStorage.removeItem('openrouter_api_key');
 
-    // StandaloneShell still expects one compatibility key prop. A sentinel lets
-    // the directly supported studios mount while provider generation reads the
-    // real Venice/OpenRouter key from localStorage. It is never sent upstream.
-    onSave(muapi || PRIVACY_SENTINEL);
+    // A direct-provider session no longer needs a fake MuAPI credential. The
+    // shell tracks provider-key presence separately and only persists/cookies a
+    // real compatibility key when the user supplies one.
+    onSave(muapi || null);
     notifyProviderKeysChanged();
   };
 
