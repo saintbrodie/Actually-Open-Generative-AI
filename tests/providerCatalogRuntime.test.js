@@ -76,11 +76,11 @@ test('provider key changes refresh catalogs without forcing a page reload', () =
     assert.match(desktopModels, /providerCatalogRuntime\.js/);
 });
 
-test('runtime refresh applies discovered models before publishing one React revision', () => {
+test('runtime rebuilds from current bootstrap state before publishing one React revision', () => {
     const runtime = source('packages/studio/src/providerCatalogRuntime.js');
 
-    const applyImage = runtime.indexOf('applyPrivacyModels(imageModels)');
-    const applyVideo = runtime.indexOf('applyPrivacyVideoModels(videoModels)');
+    const applyImage = runtime.indexOf('applyPrivacyModels(currentImageModels())');
+    const applyVideo = runtime.indexOf('applyPrivacyVideoModels(currentVideoModels())');
     const refreshImage = runtime.indexOf('catalogs.refreshImageModelCatalog()');
     const refreshVideo = runtime.indexOf('catalogs.refreshVideoModelCatalog()');
     const publish = runtime.indexOf('publishProviderCatalogRefresh()');
@@ -89,4 +89,20 @@ test('runtime refresh applies discovered models before publishing one React revi
     assert.ok(applyVideo >= 0 && refreshVideo > applyVideo);
     assert.ok(publish > refreshImage && publish > refreshVideo);
     assert.match(runtime, /if \(refreshPromise\) return refreshPromise/);
+    assert.doesNotMatch(runtime, /!hasPrivacyKey\(\).*return false/);
+});
+
+test('provider bootstrap sync removes stale discovered-only models while retaining upstream models', () => {
+    const imageBootstrap = source('packages/studio/src/privacyModelsBootstrap.js');
+    const videoBootstrap = source('packages/studio/src/privacyVideoModelsBootstrap.js');
+
+    assert.match(imageBootstrap, /getFallbackPrivacyModels/);
+    assert.match(imageBootstrap, /fallbackIds\.has\(model\.id\) \|\| providerConfigured\(model\.provider\)/);
+    assert.match(imageBootstrap, /!entry\?\.id\?\.startsWith\('privacy:'\)/);
+    assert.match(imageBootstrap, /target\.splice\(0, target\.length, \.\.\.providerModels, \.\.\.upstreamModels\)/);
+
+    assert.match(videoBootstrap, /getFallbackPrivacyVideoModels/);
+    assert.match(videoBootstrap, /fallbackIds\.has\(model\.id\) \|\| providerConfigured\(model\.provider\)/);
+    assert.match(videoBootstrap, /!entry\?\.id\?\.startsWith\('privacy-video:'\)/);
+    assert.match(videoBootstrap, /target\.splice\(0, target\.length, \.\.\.providerModels, \.\.\.upstreamModels\)/);
 });
