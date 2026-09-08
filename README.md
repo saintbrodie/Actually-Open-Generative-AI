@@ -9,9 +9,9 @@ The current code sync target is upstream commit `9745e95` from **September 6, 20
 - **Direct-provider image generation and editing** with your own **Venice** or **OpenRouter** key.
 - **Direct-provider text-to-video** with normalized async queue/poll handling for Venice and OpenRouter.
 - **Direct Venice image-to-video** using browser-local data-URL references rather than the compatibility uploader.
-- **Live provider model discovery** for Venice and OpenRouter image/video catalogs. Fresh capabilities update mounted Image/Video pickers without a page reload and are cached locally for faster subsequent starts.
+- **Live provider model discovery** for Venice and OpenRouter image/video catalogs. Fresh capabilities update mounted Image/Video pickers without a page reload, stale discovered-only entries are pruned when credentials/catalogs change, and metadata is cached locally for faster subsequent starts.
 - **Model-aware upload routing.** Selecting a direct BYOK model keeps compatible image references local even when a real MuAPI compatibility key is also configured.
-- **Compatibility-only studios are gated explicitly** in BYOK-only sessions instead of mounting as though a MuAPI session exists and failing after an upload/generation attempt.
+- **Provider auth and compatibility auth are separate states.** BYOK-only sessions no longer mint a fake MuAPI key; legacy sentinel values are migration-only and are removed when encountered. Compatibility-only studios are gated explicitly before network work.
 - **Local inference** remains available in the desktop/Electron build.
 - **Upstream stays intact behind a compatibility layer** instead of deleting large parts of the application and breaking studios that still depend on it.
 - **No third-party promo banner** in the fork UI.
@@ -43,7 +43,7 @@ Known-good fallback entries are available immediately. When a Venice/OpenRouter 
 
 The upstream family/picker system was originally built once at module load. Rather than replacing that system or forcing a page reload, this fork keeps the exported catalog objects, arrays, and maps **reference-stable** and rebuilds their contents in place after discovery. A tiny catalog revision store then notifies mounted React Image/Video studios with `useSyncExternalStore`, causing them to re-read the updated picker contents. The Vite/Electron shell shares the same mutable provider model arrays and refresh runtime, so newly discovered entries are available there as well.
 
-Saving provider keys triggers discovery immediately. A normal page reload is no longer required just to expose newly discovered models.
+Saving provider keys triggers discovery immediately. A normal page reload is no longer required just to expose newly discovered models. Each refresh reconstructs the direct-provider slice from current credentials and discovery results, so removed-provider or disappeared discovered-only entries do not linger in the picker arrays.
 
 Discovery is deliberately conservative:
 
@@ -73,7 +73,7 @@ Earlier versions of this fork replaced the upstream API module with a small part
 
 The current architecture keeps the mature upstream implementation in `upstreamMuapi.js` and routes only supported BYOK models through direct-provider adapters. This avoids a UI that looks functional while failing at runtime.
 
-The compatibility key is optional. When it is absent, compatibility-only studios are gated before their network logic runs. When both compatibility and BYOK keys exist, routing follows the **selected model**, not simply the broadest credential available in the session.
+The compatibility key is optional. When it is absent, compatibility-only studios are gated before their network logic runs. Hosted and Vite/Electron shells track direct-provider credentials separately from compatibility auth; no fake compatibility credential is created for BYOK-only sessions. Older `__actually_open_byok__` values are removed as a migration step. When both compatibility and BYOK keys exist, routing follows the **selected model**, not simply the broadest credential available in the session.
 
 ## Architecture
 
@@ -229,17 +229,17 @@ The Node suite now covers more than build smoke tests. It includes:
 - Venice I2V data-URL queue behavior.
 - Venice/OpenRouter image and video discovery normalization/cache behavior.
 - Live provider-catalog revision notifications and source-level in-place refresh/subscription contracts.
-- Compatibility-key sentinel rejection.
-- Mixed-session model-aware reference-upload routing rules and source-level studio wiring checks.
+- Legacy compatibility-sentinel rejection/migration, with provider and compatibility auth kept separate in hosted and desktop shells.
+- Provider-specific desktop generation auth, mixed-session model-aware reference-upload routing, and direct-provider pending-video resume without a MuAPI key.
 
 CI also parses/builds the Vite proxy configuration and catches workspace, Next.js, and Vite integration regressions. Manual live-key smoke testing is still necessary because mocked contracts cannot validate provider billing, account permissions, transient availability, or undocumented production changes.
 
 ## Roadmap
 
-1. Improve provider-catalog lifecycle handling: prune stale discovered-only entries when credentials are removed or provider catalogs shrink, expose refresh/loading/error state in the UI, and optionally provide a manual refresh control.
+1. Expose provider-catalog refresh/loading/error state in the UI and optionally provide a manual refresh control; stale discovered-only pruning is already handled by the runtime rebuild.
 2. Design a privacy-preserving hosted-reference strategy before enabling OpenRouter I2V/reference-video paths that require stable externally reachable media URLs.
 3. Expand direct video coverage to Venice/OpenRouter reference-to-video, V2V, and provider-specific multimodal controls through capability metadata rather than studio-specific conditionals.
-4. Replace the remaining compatibility-key sentinel plumbing with first-class capability/auth state throughout the shell; the compatibility-only studio gate is the first step, not the final architecture.
+4. Continue consolidating per-studio provider/compatibility capability checks behind a shared auth/capability context instead of localStorage reads spread across shell and standalone studios; active fake-key sentinel plumbing has been removed.
 5. Move desktop secrets to OS-backed secure storage and offer session-only browser keys.
 6. Continue broadening mocked provider contract coverage and add a repeatable opt-in live-key smoke-test harness.
 7. Port compatibility-only studios feature by feature so Layers, Recast, lip sync, audio, clipping, agents, and workflows can use direct/local backends where practical.
