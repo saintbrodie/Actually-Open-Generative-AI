@@ -1,18 +1,20 @@
 from pathlib import Path
 
 
-def replace_once(text, old, new, label):
+def replace_exact(text, old, new, label, expected=1):
     count = text.count(old)
-    if count != 1:
-        raise SystemExit(f"{label}: expected exactly one match, found {count}")
-    return text.replace(old, new, 1)
+    if count != expected:
+        raise SystemExit(f"{label}: expected exactly {expected} match(es), found {count}")
+    return text.replace(old, new, expected)
 
 
 def patch(path, replacements):
     file_path = Path(path)
     text = file_path.read_text()
-    for old, new, label in replacements:
-        text = replace_once(text, old, new, label)
+    for replacement in replacements:
+        old, new, label, *rest = replacement
+        expected = rest[0] if rest else 1
+        text = replace_exact(text, old, new, label, expected)
     file_path.write_text(text)
 
 
@@ -108,12 +110,8 @@ patch('src/components/VideoStudio.js', [
     (
         "        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file),\n        requireApiKey: () => !isWan2gpModelId(selectedModel),",
         "        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file, selectedModel),\n        requireApiKey: () => !isWan2gpModelId(selectedModel) && !isPrivacyVideoModelId(selectedModel),",
-        'VideoStudio start-frame upload routing',
-    ),
-    (
-        "        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file),\n        requireApiKey: () => !isWan2gpModelId(selectedModel),",
-        "        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file, selectedModel),\n        requireApiKey: () => !isWan2gpModelId(selectedModel) && !isPrivacyVideoModelId(selectedModel),",
-        'VideoStudio end-frame upload routing',
+        'VideoStudio start/end-frame upload routing',
+        2,
     ),
     (
         "        const apiKey = localStorage.getItem('muapi_key');\n        if (!apiKey) return; // can't poll without key; jobs remain for next time\n\n        const banner = document.createElement('div');\n        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-[#111] border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3';\n        banner.innerHTML = `<span class=\"animate-spin text-primary\">◌</span> <span class=\"banner-text\">Resuming ${pending.length} pending generation${pending.length > 1 ? 's' : ''}…</span>`;\n        document.body.appendChild(banner);\n\n        let remaining = pending.length;\n        pending.forEach(async (job) => {",
