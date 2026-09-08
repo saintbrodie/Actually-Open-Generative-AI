@@ -1,12 +1,24 @@
 import { i2iModels, t2iModels } from './models.js';
-import { getBootstrapPrivacyModels } from './privacyApi.js';
+import { getBootstrapPrivacyModels, getFallbackPrivacyModels } from './privacyApi.js';
+
+function providerConfigured(provider) {
+  if (typeof window === 'undefined') return false;
+  if (provider === 'venice') return Boolean(localStorage.getItem('venice_api_key')?.trim());
+  if (provider === 'openrouter') return Boolean(localStorage.getItem('openrouter_api_key')?.trim());
+  return false;
+}
 
 function orderedPrivacyModels(mode, models = getBootstrapPrivacyModels(mode)) {
-  const ordered = models.filter((model) => model.mode === mode).map((model) => ({ ...model }));
+  const fallbackIds = new Set(getFallbackPrivacyModels(mode).map((model) => model.id));
+  const ordered = models
+    .filter((model) => fallbackIds.has(model.id) || providerConfigured(model.provider))
+    .filter((model) => model.mode === mode)
+    .map((model) => ({ ...model }));
+
   if (typeof window === 'undefined') return ordered;
 
-  const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
-  const hasOpenRouter = Boolean(localStorage.getItem('openrouter_api_key')?.trim());
+  const hasVenice = providerConfigured('venice');
+  const hasOpenRouter = providerConfigured('openrouter');
   if (hasOpenRouter && !hasVenice) {
     ordered.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
   }
@@ -61,27 +73,21 @@ function toI2IModel(model) {
   };
 }
 
-function upsertModels(target, models, mapper) {
-  const additions = [];
-  for (const model of models) {
-    const mapped = mapper(model);
-    const index = target.findIndex((entry) => entry.id === mapped.id);
-    if (index >= 0) target[index] = mapped;
-    else additions.push(mapped);
-  }
-  target.unshift(...additions);
-  return additions.length + models.length;
+function syncProviderModels(target, models, mapper) {
+  const providerModels = models.map(mapper);
+  const upstreamModels = target.filter((entry) => !entry?.id?.startsWith('privacy:'));
+  target.splice(0, target.length, ...providerModels, ...upstreamModels);
 }
 
-export function applyPrivacyModels(models) {
+export function applyPrivacyModels(models = [
+  ...getBootstrapPrivacyModels('t2i'),
+  ...getBootstrapPrivacyModels('i2i'),
+]) {
   const t2i = orderedPrivacyModels('t2i', models);
   const i2i = orderedPrivacyModels('i2i', models);
-  upsertModels(t2iModels, t2i, toT2IModel);
-  upsertModels(i2iModels, i2i, toI2IModel);
+  syncProviderModels(t2iModels, t2i, toT2IModel);
+  syncProviderModels(i2iModels, i2i, toI2IModel);
   return t2i.length + i2i.length;
 }
 
-applyPrivacyModels([
-  ...getBootstrapPrivacyModels('t2i'),
-  ...getBootstrapPrivacyModels('i2i'),
-]);
+applyPrivacyModels();
