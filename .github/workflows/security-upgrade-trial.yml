@@ -41,6 +41,9 @@ jobs:
           console.log('studio postcss', studio.devDependencies.postcss);
           NODE
 
+      - name: Show generated dependency changes
+        run: git diff --name-only
+
       - name: Run Node tests
         run: node --test tests/*.test.js
 
@@ -82,3 +85,13 @@ jobs:
             console.log(name, v.severity, v.range, JSON.stringify(v.fixAvailable));
           }
           NODE
+
+      - name: Export validated dependency files
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-dependency-files
+          path: |
+            package.json
+            package-lock.json
+            packages/studio/package.json
+          if-no-files-found: error
