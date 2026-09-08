@@ -255,6 +255,7 @@ const getNavigationCategory = (tabId) => (
 );
 
 const STORAGE_KEY = 'muapi_key';
+const LEGACY_PRIVACY_SENTINEL = '__actually_open_byok__';
 const NOTIFICATIONS_STORAGE_KEY = 'open_gen_notifications_v1';
 const MAX_VISIBLE_NOTIFICATIONS = 3;
 
@@ -330,6 +331,8 @@ export default function StandaloneShell({ locale = 'en' }) {
   };
   
   const [apiKey, setApiKey] = useState(null);
+  const [hasProviderKey, setHasProviderKey] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
   const [activeTab, setActiveTab] = useState(getInitialTab());
 
   const [balance, setBalance] = useState(null);
@@ -564,27 +567,53 @@ export default function StandaloneShell({ locale = 'en' }) {
 
   useEffect(() => {
     setHasMounted(true);
+    const hasDirectProviderKey = Boolean(
+      localStorage.getItem('venice_api_key')?.trim() ||
+      localStorage.getItem('openrouter_api_key')?.trim(),
+    );
+    setHasProviderKey(hasDirectProviderKey);
+
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    if (stored === LEGACY_PRIVACY_SENTINEL) {
+      // Older fork builds used a fake MuAPI key to get BYOK sessions through
+      // the shell auth gate. Migrate it out of both storage and cookies.
+      localStorage.removeItem(STORAGE_KEY);
+      document.cookie = "muapi_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } else if (stored) {
       setApiKey(stored);
       fetchBalance(stored);
-      // Sync cookie immediately on mount to establish identity for background requests
+      // Only a real compatibility key is mirrored into the cookie used by
+      // background compatibility requests.
       document.cookie = `muapi_key=${stored}; path=/; max-age=31536000; SameSite=Lax`;
     }
   }, [fetchBalance]);
 
   const handleKeySave = useCallback((key) => {
-    localStorage.setItem(STORAGE_KEY, key);
-    setApiKey(key);
-    fetchBalance(key);
-    document.cookie = `muapi_key=${key}; path=/; max-age=31536000; SameSite=Lax`;
+    const hasDirectProviderKey = Boolean(
+      localStorage.getItem('venice_api_key')?.trim() ||
+      localStorage.getItem('openrouter_api_key')?.trim(),
+    );
+    setHasProviderKey(hasDirectProviderKey);
+
+    if (key) {
+      localStorage.setItem(STORAGE_KEY, key);
+      setApiKey(key);
+      fetchBalance(key);
+      document.cookie = `muapi_key=${key}; path=/; max-age=31536000; SameSite=Lax`;
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      setApiKey(null);
+      setBalance(null);
+      document.cookie = "muapi_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
+    setShowKeyModal(false);
   }, [fetchBalance]);
 
   const handleKeyChange = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setApiKey(null);
-    setBalance(null);
-    document.cookie = "muapi_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    // Open the key editor without destroying the active credentials first.
+    // The save handler applies removals atomically after validation.
+    setShowSettings(false);
+    setShowKeyModal(true);
   }, []);
 
   // Inject API key into all outgoing Axios requests (prop-based approach)
@@ -663,8 +692,15 @@ export default function StandaloneShell({ locale = 'en' }) {
     </div>
   );
 
-  if (!apiKey) {
-    return <ApiKeyModal onSave={handleKeySave} locale={locale} />;
+  if (showKeyModal || (!apiKey && !hasProviderKey)) {
+    return (
+      <ApiKeyModal
+        onSave={handleKeySave}
+        onClose={showKeyModal ? () => setShowKeyModal(false) : undefined}
+        overlay={showKeyModal}
+        locale={locale}
+      />
+    );
   }
 
   return (
