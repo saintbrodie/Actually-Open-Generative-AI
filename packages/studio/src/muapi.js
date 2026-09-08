@@ -1,7 +1,10 @@
 import * as upstream from './upstreamMuapi.js';
 import { PRIVACY_SENTINEL, isPrivacyModelId, privacyApi } from './privacyApi.js';
 import { isPrivacyVideoModelId, privacyVideoApi } from './privacyVideoApi.js';
-import { requireCompatibilityKey } from './compatibilityAuth.js';
+import {
+  requireCompatibilityKey,
+  shouldKeepReferenceUploadLocal,
+} from './compatibilityAuth.js';
 
 export * from './upstreamMuapi.js';
 
@@ -52,14 +55,17 @@ export async function generateI2V(apiKey, params) {
   return upstream.generateI2V(apiKey, params);
 }
 
-export function uploadFile(apiKey, file, onProgress) {
-  // BYOK-only image references stay in the browser as data URLs. Non-image
-  // uploads belong to compatibility-only tools today, so fail with the same
-  // explicit compatibility-key message instead of an image-format error.
+export function uploadFile(apiKey, file, onProgress, targetModelId = null) {
+  // Direct BYOK image references stay in the browser as data URLs even when a
+  // real MuAPI compatibility key also exists. This keeps routing tied to the
+  // selected model instead of treating the session's broadest credential as
+  // permission to upload a direct-provider reference to the compatibility
+  // backend. BYOK-only non-image uploads still belong to unported tools and
+  // therefore fail with the explicit compatibility-key message.
+  if (shouldKeepReferenceUploadLocal(apiKey, targetModelId, file?.type)) {
+    return privacyApi.fileToDataUrl(file, onProgress);
+  }
   if (apiKey === PRIVACY_SENTINEL) {
-    if (file?.type?.startsWith('image/')) {
-      return privacyApi.fileToDataUrl(file, onProgress);
-    }
     requireCompatibilityKey(apiKey);
   }
   requireCompatibilityKey(apiKey);
