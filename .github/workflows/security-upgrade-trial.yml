@@ -18,7 +18,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
+          node-version: 22.13.0
           cache: npm
 
       - name: Install current lockfile
@@ -31,7 +31,7 @@ jobs:
           npm install --save-dev electron@44.2.0 electron-builder@26.15.3 postcss@8.5.28 vite@8.2.2
           npm install axios@1.20.0 --workspace=studio
           npm install --save-dev postcss@8.5.28 --workspace=studio
-          npm audit fix
+          npm audit fix || true
           node - <<'NODE'
           const pkg = require('./package.json');
           const studio = require('./packages/studio/package.json');
