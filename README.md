@@ -119,20 +119,20 @@ The Vite development server mirrors the same provider endpoint families instead 
 Important files:
 
 ```text
-packages/studio/src/privacyApi.js                  Venice/OpenRouter image adapter + discovery
-packages/studio/src/privacyModelsBootstrap.js      Cached BYOK image catalog injection
-packages/studio/src/privacyVideoApi.js             Venice/OpenRouter async video adapter + discovery
-packages/studio/src/privacyVideoModelsBootstrap.js Cached BYOK video catalog injection
-packages/studio/src/compatibilityAuth.js            Compatibility capability/auth + upload-routing rules
-packages/studio/src/CompatibilityGate.jsx           BYOK-only lock state for compatibility-only studios
-packages/studio/src/muapi.js                        React provider/compatibility router
-packages/studio/src/upstreamMuapi.js                Preserved upstream API client
-app/api/privacy/.../route.js                        Hosted allow-listed streaming provider proxy
-vite.config.mjs                                     Allow-listed Vite development provider proxies
-src/lib/muapi.js                                    Vite/Electron provider/compatibility router
-src/lib/providerFetchBridge.js                      Electron renderer provider-fetch bridge
-electron/lib/providerProxy.js                       Electron main-process endpoint allow-list/transport
-src/lib/upstreamMuapi.js                            Preserved upstream Vite client
+packages/studio/src/privacyApi.js                              Venice/OpenRouter image adapter + discovery
+packages/studio/src/privacyModelsBootstrap.js                  Cached BYOK image catalog injection
+packages/studio/src/privacyVideoApi.js                         Venice/OpenRouter async video adapter + discovery
+packages/studio/src/privacyVideoModelsBootstrap.js             Cached BYOK video catalog injection
+packages/studio/src/compatibilityAuth.js                       Compatibility capability/auth + upload-routing rules
+packages/studio/src/components/CompatibilityStudioGate.jsx     BYOK-only lock state for compatibility-only studios
+packages/studio/src/muapi.js                                   React provider/compatibility router
+packages/studio/src/upstreamMuapi.js                           Preserved upstream API client
+app/api/privacy/.../route.js                                   Hosted allow-listed streaming provider proxy
+vite.config.mjs                                                Allow-listed Vite development provider proxies
+src/lib/muapi.js                                               Vite/Electron provider/compatibility router
+src/lib/providerFetchBridge.js                                 Electron renderer provider-fetch bridge
+electron/lib/providerProxy.js                                  Electron main-process endpoint allow-list/transport
+src/lib/upstreamMuapi.js                                       Preserved upstream Vite client
 ```
 
 ## Privacy notes
@@ -217,7 +217,7 @@ The Node suite now covers more than build smoke tests. It includes:
 - Venice I2V data-URL queue behavior.
 - Venice/OpenRouter image and video discovery normalization/cache behavior.
 - Compatibility-key sentinel rejection.
-- Mixed-session model-aware reference-upload routing rules.
+- Mixed-session model-aware reference-upload routing rules and source-level studio wiring checks.
 
 CI also parses/builds the Vite proxy configuration and catches workspace, Next.js, and Vite integration regressions. Manual live-key smoke testing is still necessary because mocked contracts cannot validate provider billing, account permissions, transient availability, or undocumented production changes.
 
