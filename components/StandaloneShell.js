@@ -1208,7 +1208,9 @@ export default function StandaloneShell({ locale = 'en' }) {
                    {copy.settingsModal.activeApiKey}
                 </label>
                 <div className="text-[13px] font-mono text-white/80">
-                  {apiKey.slice(0, 8)}••••••••••••••••
+                  {apiKey
+                    ? `${apiKey.slice(0, 8)}••••••••••••••••`
+                    : 'Direct BYOK · no MuAPI compatibility key'}
                 </div>
               </div>
             </div>
