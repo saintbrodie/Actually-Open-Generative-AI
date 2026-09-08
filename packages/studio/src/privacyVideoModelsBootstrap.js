@@ -1,19 +1,16 @@
 import { i2vModels, t2vModels } from './models.js';
-import {
-  getBootstrapPrivacyVideoModels,
-  refreshPrivacyVideoModelCache,
-} from './privacyVideoApi.js';
+import { getBootstrapPrivacyVideoModels } from './privacyVideoApi.js';
 
-function orderedPrivacyVideoModels(mode) {
-  const models = getBootstrapPrivacyVideoModels(mode);
-  if (typeof window === 'undefined') return models;
+function orderedPrivacyVideoModels(mode, models = getBootstrapPrivacyVideoModels(mode)) {
+  const ordered = models.filter((model) => model.mode === mode).map((model) => ({ ...model }));
+  if (typeof window === 'undefined') return ordered;
 
   const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
   const hasOpenRouter = Boolean(localStorage.getItem('openrouter_api_key')?.trim());
   if (hasOpenRouter && !hasVenice) {
-    models.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
+    ordered.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
   }
-  return models;
+  return ordered;
 }
 
 function baseStudioModel(model) {
@@ -96,31 +93,26 @@ function toI2VModel(model) {
   };
 }
 
-function prependMissing(target, models, mapper) {
-  const existing = new Set(target.map((model) => model.id));
-  const additions = models
-    .filter((model) => !existing.has(model.id))
-    .map(mapper);
+function upsertModels(target, models, mapper) {
+  const additions = [];
+  for (const model of models) {
+    const mapped = mapper(model);
+    const index = target.findIndex((entry) => entry.id === mapped.id);
+    if (index >= 0) target[index] = mapped;
+    else additions.push(mapped);
+  }
   target.unshift(...additions);
 }
 
-prependMissing(t2vModels, orderedPrivacyVideoModels('t2v'), toT2VModel);
-prependMissing(i2vModels, orderedPrivacyVideoModels('i2v'), toI2VModel);
-
-// The upstream family/catalog maps are still created synchronously at module
-// load, so discovery refreshes a short-lived cache rather than mutating those
-// maps underneath mounted React components. Fresh provider metadata is picked
-// up on the next load; conservative fallback entries remain available now.
-if (typeof window !== 'undefined') {
-  const hasProviderKey = Boolean(
-    localStorage.getItem('venice_api_key')?.trim() ||
-    localStorage.getItem('openrouter_api_key')?.trim(),
-  );
-  if (hasProviderKey) {
-    window.setTimeout(() => {
-      refreshPrivacyVideoModelCache().catch((error) => {
-        console.warn('[Privacy Video Bootstrap] model refresh failed:', error.message);
-      });
-    }, 0);
-  }
+export function applyPrivacyVideoModels(models) {
+  const t2v = orderedPrivacyVideoModels('t2v', models);
+  const i2v = orderedPrivacyVideoModels('i2v', models);
+  upsertModels(t2vModels, t2v, toT2VModel);
+  upsertModels(i2vModels, i2v, toI2VModel);
+  return t2v.length + i2v.length;
 }
+
+applyPrivacyVideoModels([
+  ...getBootstrapPrivacyVideoModels('t2v'),
+  ...getBootstrapPrivacyVideoModels('i2v'),
+]);
