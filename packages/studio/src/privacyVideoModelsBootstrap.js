@@ -1,12 +1,24 @@
 import { i2vModels, t2vModels } from './models.js';
-import { getBootstrapPrivacyVideoModels } from './privacyVideoApi.js';
+import { getBootstrapPrivacyVideoModels, getFallbackPrivacyVideoModels } from './privacyVideoApi.js';
+
+function providerConfigured(provider) {
+  if (typeof window === 'undefined') return false;
+  if (provider === 'venice') return Boolean(localStorage.getItem('venice_api_key')?.trim());
+  if (provider === 'openrouter') return Boolean(localStorage.getItem('openrouter_api_key')?.trim());
+  return false;
+}
 
 function orderedPrivacyVideoModels(mode, models = getBootstrapPrivacyVideoModels(mode)) {
-  const ordered = models.filter((model) => model.mode === mode).map((model) => ({ ...model }));
+  const fallbackIds = new Set(getFallbackPrivacyVideoModels(mode).map((model) => model.id));
+  const ordered = models
+    .filter((model) => fallbackIds.has(model.id) || providerConfigured(model.provider))
+    .filter((model) => model.mode === mode)
+    .map((model) => ({ ...model }));
+
   if (typeof window === 'undefined') return ordered;
 
-  const hasVenice = Boolean(localStorage.getItem('venice_api_key')?.trim());
-  const hasOpenRouter = Boolean(localStorage.getItem('openrouter_api_key')?.trim());
+  const hasVenice = providerConfigured('venice');
+  const hasOpenRouter = providerConfigured('openrouter');
   if (hasOpenRouter && !hasVenice) {
     ordered.sort((a, b) => Number(b.provider === 'openrouter') - Number(a.provider === 'openrouter'));
   }
@@ -76,43 +88,40 @@ function toT2VModel(model) {
 }
 
 function toI2VModel(model) {
+  const base = baseStudioModel(model);
+  const imageField = model.imageField || 'image_url';
   return {
-    ...baseStudioModel(model),
-    imageField: model.imageField || 'image_url',
+    ...base,
+    imageField,
     maxImages: model.maxImages || 1,
-    required: ['prompt', model.imageField || 'image_url'],
+    required: ['prompt', imageField],
     inputs: {
-      ...baseStudioModel(model).inputs,
-      [model.imageField || 'image_url']: {
+      ...base.inputs,
+      [imageField]: {
         type: 'string',
         field: 'image',
         title: 'Start frame',
-        name: model.imageField || 'image_url',
+        name: imageField,
       },
     },
   };
 }
 
-function upsertModels(target, models, mapper) {
-  const additions = [];
-  for (const model of models) {
-    const mapped = mapper(model);
-    const index = target.findIndex((entry) => entry.id === mapped.id);
-    if (index >= 0) target[index] = mapped;
-    else additions.push(mapped);
-  }
-  target.unshift(...additions);
+function syncProviderModels(target, models, mapper) {
+  const providerModels = models.map(mapper);
+  const upstreamModels = target.filter((entry) => !entry?.id?.startsWith('privacy-video:'));
+  target.splice(0, target.length, ...providerModels, ...upstreamModels);
 }
 
-export function applyPrivacyVideoModels(models) {
+export function applyPrivacyVideoModels(models = [
+  ...getBootstrapPrivacyVideoModels('t2v'),
+  ...getBootstrapPrivacyVideoModels('i2v'),
+]) {
   const t2v = orderedPrivacyVideoModels('t2v', models);
   const i2v = orderedPrivacyVideoModels('i2v', models);
-  upsertModels(t2vModels, t2v, toT2VModel);
-  upsertModels(i2vModels, i2v, toI2VModel);
+  syncProviderModels(t2vModels, t2v, toT2VModel);
+  syncProviderModels(i2vModels, i2v, toI2VModel);
   return t2v.length + i2v.length;
 }
 
-applyPrivacyVideoModels([
-  ...getBootstrapPrivacyVideoModels('t2v'),
-  ...getBootstrapPrivacyVideoModels('i2v'),
-]);
+applyPrivacyVideoModels();
