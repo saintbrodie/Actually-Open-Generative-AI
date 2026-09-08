@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n.js';
-import { syncPrivacyCompatibilitySentinel } from '../lib/privacyApi.js';
+import { PRIVACY_SENTINEL } from '../lib/privacyApi.js';
 import { notifyProviderKeysChanged } from 'studio/src/providerCatalogRuntime.js';
 
 export function AuthModal(onSuccess) {
@@ -72,7 +72,8 @@ export function AuthModal(onSuccess) {
     veniceInput.value = localStorage.getItem('venice_api_key') || '';
     openrouterInput.value = localStorage.getItem('openrouter_api_key') || '';
     const existingMuapi = localStorage.getItem('muapi_key') || '';
-    muapiInput.value = existingMuapi === '__actually_open_byok__' ? '' : existingMuapi;
+    if (existingMuapi === PRIVACY_SENTINEL) localStorage.removeItem('muapi_key');
+    muapiInput.value = existingMuapi === PRIVACY_SENTINEL ? '' : existingMuapi;
 
     const close = () => {
         document.removeEventListener('keydown', onKeydown);
@@ -109,7 +110,6 @@ export function AuthModal(onSuccess) {
         if (muapiKey) localStorage.setItem('muapi_key', muapiKey);
         else localStorage.removeItem('muapi_key');
 
-        syncPrivacyCompatibilitySentinel();
         notifyProviderKeysChanged();
         close();
         if (onSuccess) onSuccess();

@@ -8,6 +8,7 @@ import { localAI, isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { LOCAL_MODEL_CATALOG, getLocalModelById } from '../lib/localModels.js';
 import { ENHANCE_TAGS, QUICK_PROMPTS } from '../lib/promptUtils.js';
 import { AuthModal } from './AuthModal.js';
+import { hasPrivacyKeyForModel, isPrivacyModelId } from '../lib/privacyApi.js';
 import { t } from '../lib/i18n.js';
 import { createUploadPicker } from './UploadPicker.js';
 import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pendingJobs.js';
@@ -115,8 +116,8 @@ export function ImageStudio() {
     // --- Image Upload Picker (Image-to-Image) ---
     const picker = createUploadPicker({
         anchorContainer: container,
-        uploadFn: (file) => useLocalModel ? URL.createObjectURL(file) : muapi.uploadFile(file),
-        requireApiKey: () => !useLocalModel,
+        uploadFn: (file) => useLocalModel ? URL.createObjectURL(file) : muapi.uploadFile(file, selectedModel),
+        requireApiKey: () => !useLocalModel && !isPrivacyModelId(selectedModel),
         onSelect: ({ url, urls }) => {
             uploadedImageUrls = urls || [url];
             if (!imageMode) {
@@ -1221,7 +1222,11 @@ export function ImageStudio() {
 
         // ── Remote API path ───────────────────────────────────────────────────
         const apiKey = localStorage.getItem('muapi_key');
-        if (!apiKey) {
+        const directProviderModel = isPrivacyModelId(selectedModel);
+        const hasRequiredAuth = directProviderModel
+            ? hasPrivacyKeyForModel(selectedModel)
+            : Boolean(apiKey);
+        if (!hasRequiredAuth) {
             AuthModal(() => generateBtn.click());
             return;
         }

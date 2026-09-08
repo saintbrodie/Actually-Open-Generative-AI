@@ -6,6 +6,7 @@ import { createUploadPicker } from './UploadPicker.js';
 import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pendingJobs.js';
 import { localAI, isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { isWan2gpModelId, getLocalModelById, localT2VModels, localI2VModels } from '../lib/localModels.js';
+import { hasPrivacyVideoKeyForModel, isPrivacyVideoJobId, isPrivacyVideoModelId } from 'studio/src/privacyVideoApi.js';
 
 // Promotes a wan2gp catalog entry (lib/localModels.js shape) into the
 // `inputs`-shaped descriptor the Video Studio dropdowns/controls expect.
@@ -170,8 +171,8 @@ export function VideoStudio() {
         },
         // Route the upload through the configured Wan2GP server when the active
         // model is local; otherwise fall back to the Muapi-hosted upload.
-        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file),
-        requireApiKey: () => !isWan2gpModelId(selectedModel),
+        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file, selectedModel),
+        requireApiKey: () => !isWan2gpModelId(selectedModel) && !isPrivacyVideoModelId(selectedModel),
     });
     topRow.appendChild(picker.trigger);
     container.appendChild(picker.panel);
@@ -184,8 +185,8 @@ export function VideoStudio() {
         anchorContainer: container,
         onSelect: ({ url }) => { uploadedEndImageUrl = url; },
         onClear: () => { uploadedEndImageUrl = null; },
-        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file),
-        requireApiKey: () => !isWan2gpModelId(selectedModel),
+        uploadFn: (file) => isWan2gpModelId(selectedModel) ? localAI.uploadFileToWan2gp(file) : muapi.uploadFile(file, selectedModel),
+        requireApiKey: () => !isWan2gpModelId(selectedModel) && !isPrivacyVideoModelId(selectedModel),
     });
     endPicker.trigger.title = 'End frame (optional)';
     // Visual marker: small "L" badge in the corner so users can tell the two
@@ -996,15 +997,16 @@ export function VideoStudio() {
         if (!pending.length) return;
 
         const apiKey = localStorage.getItem('muapi_key');
-        if (!apiKey) return; // can't poll without key; jobs remain for next time
+        const resumable = pending.filter((job) => isPrivacyVideoJobId(job.requestId) || apiKey);
+        if (!resumable.length) return; // compatibility-only jobs wait until a real key is restored
 
         const banner = document.createElement('div');
         banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-[#111] border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3';
-        banner.innerHTML = `<span class="animate-spin text-primary">◌</span> <span class="banner-text">Resuming ${pending.length} pending generation${pending.length > 1 ? 's' : ''}…</span>`;
+        banner.innerHTML = `<span class="animate-spin text-primary">◌</span> <span class="banner-text">Resuming ${resumable.length} pending generation${resumable.length > 1 ? 's' : ''}…</span>`;
         document.body.appendChild(banner);
 
-        let remaining = pending.length;
-        pending.forEach(async (job) => {
+        let remaining = resumable.length;
+        resumable.forEach(async (job) => {
             const elapsedAttempts = Math.floor((Date.now() - job.submittedAt) / job.interval);
             const attemptsLeft = Math.max(1, job.maxAttempts - elapsedAttempts);
             try {
@@ -1117,10 +1119,16 @@ export function VideoStudio() {
 
         const isLocal = isWan2gpModelId(selectedModel);
 
-        // Local Wan2GP generations don't go through Muapi — skip the auth gate.
+        // Local Wan2GP generations don't need cloud auth. Direct-provider
+        // models require their own provider key; compatibility models require a
+        // real MuAPI key.
         if (!isLocal) {
             const apiKey = localStorage.getItem('muapi_key');
-            if (!apiKey) {
+            const directProviderModel = isPrivacyVideoModelId(selectedModel);
+            const hasRequiredAuth = directProviderModel
+                ? hasPrivacyVideoKeyForModel(selectedModel)
+                : Boolean(apiKey);
+            if (!hasRequiredAuth) {
                 AuthModal(() => generateBtn.click());
                 return;
             }

@@ -192,13 +192,18 @@ export function hasPrivacyKey() {
   return Boolean(store?.getItem('venice_api_key')?.trim() || store?.getItem('openrouter_api_key')?.trim());
 }
 
+export function hasPrivacyKeyForModel(modelId) {
+  const model = getPrivacyModel(modelId);
+  if (!model?.provider) return false;
+  const config = configFor(model.provider);
+  return Boolean(storage()?.getItem(config.keyStorage)?.trim());
+}
+
+// Backward-compatible migration hook. Older fork builds wrote a fake MuAPI
+// credential for BYOK-only sessions; current builds only remove that value.
 export function syncPrivacyCompatibilitySentinel() {
   const store = storage();
-  if (!store) return;
-  const current = store.getItem('muapi_key');
-  if (hasPrivacyKey()) {
-    if (!current) store.setItem('muapi_key', PRIVACY_SENTINEL);
-  } else if (current === PRIVACY_SENTINEL) {
+  if (store?.getItem('muapi_key') === PRIVACY_SENTINEL) {
     store.removeItem('muapi_key');
   }
 }

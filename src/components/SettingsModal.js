@@ -1,7 +1,7 @@
 import { LocalModelManager } from './LocalModelManager.js';
 import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
-import { PRIVACY_SENTINEL, syncPrivacyCompatibilitySentinel } from '../lib/privacyApi.js';
+import { PRIVACY_SENTINEL } from '../lib/privacyApi.js';
 import { notifyProviderKeysChanged } from 'studio/src/providerCatalogRuntime.js';
 
 export function SettingsModal(onClose) {
@@ -91,6 +91,7 @@ export function SettingsModal(onClose) {
     apiPanel.querySelector('#settings-venice-key').value = localStorage.getItem('venice_api_key') || '';
     apiPanel.querySelector('#settings-openrouter-key').value = localStorage.getItem('openrouter_api_key') || '';
     const storedMuapiKey = localStorage.getItem('muapi_key') || '';
+    if (storedMuapiKey === PRIVACY_SENTINEL) localStorage.removeItem('muapi_key');
     apiPanel.querySelector('#settings-muapi-key').value = storedMuapiKey === PRIVACY_SENTINEL ? '' : storedMuapiKey;
 
     const localPanel = LocalModelManager();
@@ -139,7 +140,6 @@ export function SettingsModal(onClose) {
         if (muapiKey) localStorage.setItem('muapi_key', muapiKey);
         else localStorage.removeItem('muapi_key');
 
-        syncPrivacyCompatibilitySentinel();
         notifyProviderKeysChanged();
         close();
     };

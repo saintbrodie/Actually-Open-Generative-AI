@@ -365,6 +365,13 @@ export function isPrivacyVideoModelId(modelId) {
   return Boolean(parseModelId(modelId));
 }
 
+export function hasPrivacyVideoKeyForModel(modelId) {
+  const parsed = parseModelId(modelId);
+  if (!parsed) return false;
+  const config = configFor(parsed.provider);
+  return Boolean(storage()?.getItem(config.keyStorage)?.trim());
+}
+
 export function isPrivacyVideoJobId(value) {
   return Boolean(parseJobId(value));
 }

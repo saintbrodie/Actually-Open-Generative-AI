@@ -19,6 +19,7 @@ export class MuapiClient extends UpstreamMuapiClient {
     getKey() {
         const key = super.getKey();
         if (key === PRIVACY_SENTINEL) {
+            localStorage.removeItem('muapi_key');
             throw new Error(
                 'This feature is not yet available through the BYOK provider adapters. ' +
                 'Choose a Venice/OpenRouter image or text-to-video model, a Venice image-to-video model, ' +
@@ -63,11 +64,11 @@ export class MuapiClient extends UpstreamMuapiClient {
         return super.pollForResult(requestId, key, maxAttempts, interval);
     }
 
-    async uploadFile(file) {
-        // Do not send BYOK-only image references through the compatibility
-        // uploader. Data URLs can be consumed directly by Venice image/edit
-        // and video queue APIs.
-        if (localStorage.getItem('muapi_key') === PRIVACY_SENTINEL) {
+    async uploadFile(file, modelId = null) {
+        // Direct-provider reference routing follows the selected model rather
+        // than a session-wide fake compatibility credential. Venice/OpenRouter
+        // image models and Venice I2V keep eligible images browser-local.
+        if (isPrivacyModelId(modelId) || isPrivacyVideoModelId(modelId)) {
             return privacyApi.fileToDataUrl(file);
         }
         return super.uploadFile(file);
